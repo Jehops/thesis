@@ -1,0 +1,115 @@
+\documentclass[12pt,glossary]{dalthesis}
+
+\usepackage{amsmath}
+\usepackage{amsmath}
+\usepackage{bm} % for bold math symbols
+\usepackage{booktabs} % better tables
+%\usepackage[left=1in,right=1in,top=1in,bottom=1in]{geometry} % margins
+% for subfigures (requires caption, breaks knitr w/o subfloat defined below)
+%\usepackage{caption,subcaption}
+\usepackage{float}
+\usepackage{graphicx} % obviously for graphics
+%\usepackage{latexsym} % MBE template for some fonts
+\usepackage{lineno} % line numbers
+\usepackage{mathtools} % an extension to amsmath to fix bugs
+\usepackage{multirow} % column cells that span multiple rows
+\usepackage{natbib} % nicer references
+%\usepackage[natbib=true,style=apa]{biblatex}
+%\addbibresource{/home/jrm/scm/references.git/refs.bib}
+\usepackage{paralist} % inline lists
+%\usepackage[section]{placeins} % keep figures and table inside section
+\usepackage{rotating} % for landscape tables
+\usepackage{setspace} % for line spacing
+% need subfloat b/c knitr's fig.subcap was built with deprecated subfig package
+\newcommand{\subfloat}[2][need a sub-caption]{\subcaptionbox{#1}{#2}}
+\usepackage[flushleft]{threeparttable} % description under table
+\usepackage{tikz}
+\usepackage{tikz-qtree}
+\usepackage[noindentafter,tiny]{titlesec}
+\titleformat{\subsection}{\itshape\small\bfseries}{\thesubsection}{1em}{}
+\titlespacing{\section}{0pt}{6pt}{6pt}
+\titlespacing{\subsection}{0pt}{5pt}{5pt}
+\usepackage{verbatim} % comments
+
+\usetikzlibrary{arrows}
+
+% specialcell is for line breaks in table cells
+\newcommand{\specialcell}[2][c]{\begin{tabular}[#1]{@{}c@{}}#2\end{tabular}}
+
+\renewcommand{\figurename}{Fig.}
+
+\begin{document}
+
+<<setup,include=F>>=
+library(ggplot2)
+library(grid)
+library(gtable)
+library(knitr)
+opts_chunk$set(fig.path='figures/',fig.align='center',fig.show='hold',cache=T,autodep=T) #$
+options(formatR.arrow=TRUE,width=90)
+setwd("/home/jrm/scm/thesis.git/")
+@
+
+\title{Classifying Evolution on Proteins and Amino Acids: Improving Reliability with modified likelihood, bootstrapping, and blah}
+\author{Joseph R. Mingrone}
+
+\phd
+\defencemonth{February}
+\defenceyear{2018}
+
+% \dedicate{Optionally, the thesis can be dedicated to someone, and the student can enter the dedication content here.}
+
+\frontmatter
+
+\begin{abstract}[s]
+  Classifying selection pressure at the basic unit of the protein, the amino acid, is helpful for understanding a variety of biological processes: drug resistance of tuberculosis, adaptation of the domestic yak to life at high altitudes, or host-parasite incongruence in papillomavirus evolution to name a few.  The most widely used model implementations for classify evolution in protein coding genetic sequences are part of the PAML package developed by Yang.  The papers describing these model implementations have been cited nearly $10,000$ times by researchers in a variety of fields.  The aim of this work is to build upon these models to improve their reliability.
+
+  Likelihood ratio (LR) tests are commonly used to test for positive selection acting on proteins.  Due to statistical irregularity in some mixture models of codon evolution, the LR statistic distributions of the tests are not strictly justified and thresholds determined from the distributions can give larger than expected type I error rates.  In Chapter 2, we present a modified likelihood approach that can restore statistical regularity to give tractable LR statistic distributions for mixture models of codon evolution.
+  
+  To detect positive selection at individual amino acid sites, most methods use an empirical Bayes approach.  After parameters of a Markov process of codon evolution are estimated via maximum likelihood, they are passed to Bayes formula to compute the posterior probability that a site evolved under positive selection.  A difficulty with this approach is that parameter estimates with large errors can negatively impact Bayesian classification.  In Chapter 3, we present a technique we call smoothed bootstrap aggregation to accommodate the uncertainty in parameter estimates.
+
+  In Chapter 4 we do something earth shattering that transforms the world.
+\end{abstract}
+
+\printglossary
+\glossary{name={LR},description={Likelihood Ratio}}
+\glossary{name={SBA},description={Smoothed Bootstrap Aggregation}}
+
+%\begin{acknowledgements}
+%Thanks to all the little people who make me look tall.
+%\end{acknowledgements}
+
+\mainmatter
+
+\chapter{Introduction}
+
+\chapter{Modified Likelihood}
+\section{Introduction}
+
+\chapter{Smoothed Bootstrap Aggregation}
+\section{Introduction}
+Identifying positively selected amino acid sites is a challenging statistical task that is important for investigating the functional consequences of molecular change \citep{yang2005power}.  Several approaches have been developed to detect positive selection within a protein \citep[reviewed in][]{pond2005not,anisimova2009investigating}, but their reliability varies according to the properties of the data in hand.  The most widely used methods employ a codon model to detect an excess in the rate of nonsynonymous substitutions relative to synonymous substitutions ($dN/dS = \omega > 1$), which is an indication of evolution by positive selection.  Proteins evolving under positive selection must retain the capacity to fold into complex structural and functional domains, so the majority of amino acid substitutions will be subject to purifying selection pressure, with $\omega < 1$ \citep{kimura1968evolutionary}.  From extensive surveys of positive selection in real genes, we expect that only a small fraction of amino acid sites will be subject to adaptive change and exhibit an $\omega > 1$ \citep[e.g., ][]{anisimova2007phylogenomic,ge2008protein}.  The sparseness of these sites makes them challenging to identify.
+
+%\subsection*{Counting and Fixed-Effect Methods}
+Two general categories of methods for detecting positively selected amino acid sites include counting and fixed-effect methods.  Counting methods employ ancestral reconstruction of codon states for all internal nodes of a phylogenetic tree to obtain counts of the synonymous and nonsynonymous changes along each of its branches.  The counts inferred for a given site are used to test if $\omega \neq 1$.  Some counting methods use parsimony \citep{fitch1997long,bush1999positive,suzuki1999method}, and others likelihood \citep{suzuki2004new,nielsen2002mapping,nielsen2002detecting,suzuki2004false,pond2005not} to infer the ancestral codon states.  The reconstructions are often similar, but under the likelihood approach uncertainty about the inference can be summarized via the posterior probabilities of the ancestral states.  Thus, the parsimony based methods must assume that these uncertainties are irrelevant to the statistical test.  While this makes the approach attractive for very large datasets where reliable reconstructions can be obtained relatively quickly \citep{lemey2012counting}, widespread use is hindered by a lack of power when the level of divergence is too low or by the negative impact of substitutional saturation when the level of divergence is too high \citep{pond2005not}.
+
+An alternative approach is to treat each site as independently relevant to the question of evolution by positive selection, and attempt to fit an $\omega$ parameter to the data at each site.  Thus, the effect of each site on the task of $\omega$ inference is fixed.  Model based testing for $\omega \neq 1$ can be carried out via a standard likelihood ratio test (LR), and no assumptions are required about the distribution of selection pressure, $\omega$.  Although $\omega$ is treated as a site-specific variable, other important variables in the codon model (e.g., branch lengths) are shared among sites, with their values estimated jointly from the complete set of sites.  Results obtained by using these modelling ideas \citep{pond2005not, massingham2005detecting} are encouraging, and we expect this family of methods will continue to have a role in real data analyses \citep{scheffler2014validity}.  However, $\chi^2$ approximations to the distribution of the test statistic assume relatively large numbers of taxa, which is often not the case.  The lack of independence of data across taxa that is due to phylogeny creates further difficulties for $\chi^2$ approximations.
+
+% \subsection*{Empirical Bayes Methods}
+A third approach for detecting positive selection at amino acid sites, which is the focus of this article, treats the value of \(\omega\) at a site as the realized value of a random variable.  A particular model for the distribution of \(\omega\) is chosen and maximum likelihood (ML) is used to fit the distribution to the data as part of an explicit model of codon evolution.  There are recommendations \citep[e.g.,][]{yang1998synonymous} to use a pre-screen that fits two models: one with a distribution that excludes values of \(\omega>1\), and another with the same distribution, except with weight on values of \(\omega>1\) permitted.  This nested-model pre-screening is used to test if the data conveys any evidence of positive selection.  When the null hypothesis of no positive selection is rejected using a LR test, site-wise analysis is warranted.  Site-wise analysis is carried out using Bayes rule to calculate the posterior probability that a site \(h\) evolved under some estimated value of \(\omega\), given the data at site \(h\).  This approach is referred to as empirical Bayes (EB) because the marginal distribution of \(\omega\) is determined from the data.  Conclusions regarding the evolution at a site are made based on the estimated \(\omega\)-values along with their associated posterior probabilities conditioned on the data at the site.  For example, when the largest posterior probability for a site is associated with a value of \(\omega>1\), this is taken as evidence of positive selection at that site.
+
+Because the marginal distribution of $\omega$ is determined from the data %, and $Pr(\omega^{(h)}>1|x_h)$
+and the site posterior probabilities always depend on the fitted values of the model parameters (shape parameters of the distribution, edge lengths, etc.), the reliability of EB inference depends on the accuracy of the fitted values.  If they have been accurately estimated, as is often the case with large, information-rich datasets, they can simply be treated as known without errors.  This approach is known as the na\"{i}ve empirical Bayes approach (NEB) \citep{nielsen1998likelihood}.  However, when the fitted values are subject to large errors, the detection of positive selection according to %%$Pr(\omega^{(h)}>1|x_h)$
+the posterior probabilities can be negatively impacted and in some cases the false positive rate can be unacceptably high \citep{wong2004accuracy}.  Bayes empirical Bayes (BEB), has been used to adjust for uncertainty in the parameters of the $\omega$ distribution by assigning priors to those parameters and using numerical integration to average over the uncertainty represented by the priors \citep{yang2005bayes}.  Because this tactic can substantially reduce the false positive rate relative to NEB in problematic datasets, BEB has become a popular method for inferring the action of selection at individual sites.  A fully Bayesian approach that also assigns priors to edge-lengths and other parameters is available for the inference of positive selection at sites \citep{aris2003bayes, huelsenbeck2004bayesian}, but it is not as widely employed as EB because it is available for a limited set of models.
+
+BEB does have limitations.  As currently implemented, the BEB approach only accommodates uncertainty in the parameters of the $\omega$ distribution, leaving all others fixed to their fitted values.  Furthermore, only uniform priors are used, which means the adjustment for uncertainty is independent of the signal in the data.  Although these will not be serious limitations for many analyses of real data, we show through simulation and real data analysis that deriving the adjustment for parameter uncertainty from the data can improve inference for some datasets.  To avoid the need for priors, we developed a new approach that uses bootstrapping \citep{efron1979bootstrap,efron1982jackknife} of site patterns to simulate dataset variability and adjust for the uncertainty in the data.  From bootstrap datasets, the distribution of the maximum likelihood estimates (MLEs) can be estimated.  The posterior probabilities %%$\omega^{(h)}>1|x_h$
+for positive selection at a site is then obtained using an aggregate value coming from MLEs over bootstrapped data sets, rather than according to a single posterior probability obtained under NEB or BEB.  In principle, bootstrap-based methods should use as many replicates as possible to approximate the infinite-sample bootstrap distribution.  As this is computationally expensive, we use smoothing techniques borrowed from kernel density estimation \citep[Section 3.4]{silverman1987bootstrap,davison1997bootstrap} to obtain an approximation with less computational cost.  We refer to this new approach as smoothed bootstrap aggregation (SBA).  Our simulation results show that SBA balances accuracy and power at least as well as BEB.
+
+We also investigated the behaviour of ML estimation when standard regularity conditions, such as the requirement for true parameter values to be in the interior of the parameter space, are not met.
+Codon models fit $\omega$ distributions that, for some data-generating settings, violate regularity conditions, which leads to substantial instability in parameter estimation.  These instabilities have a negative impact on the inference of positive selection under EB, and we show that our new approach is an improvement over both NEB and BEB in such cases.  We also show that results previously reported for the \textit{tax} gene of HTLV \citep{suzuki2004false} are likely a consequence of such instabilities.  The \textit{tax} gene is a well known example where EB is widely considered unreliable, and it has been used to criticize the overall approach.  We provide an explanation for the previous results obtained under EB methods for the \textit{tax} gene, and show that SBA can help diagnose such dubious inferences.
+
+\bibliographystyle{plain}
+\bibliography{/home/jrm/scm/references.git/refs}
+
+\end{document}
+
