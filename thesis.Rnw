@@ -6,10 +6,10 @@
 \usepackage{booktabs} % better tables
 %\usepackage[left=1in,right=1in,top=1in,bottom=1in]{geometry} % margins
 % for subfigures (requires caption, breaks knitr w/o subfloat defined below)
-%\usepackage{caption,subcaption}
+\usepackage{caption,subcaption}
 \usepackage{float}
 \usepackage{graphicx} % obviously for graphics
-%\usepackage{latexsym} % MBE template for some fonts
+% \usepackage{latexsym} % MBE template for some fonts
 \usepackage{lineno} % line numbers
 \usepackage{mathtools} % an extension to amsmath to fix bugs
 \usepackage{multirow} % column cells that span multiple rows
@@ -36,11 +36,15 @@
 % specialcell is for line breaks in table cells
 \newcommand{\specialcell}[2][c]{\begin{tabular}[#1]{@{}c@{}}#2\end{tabular}}
 
+% partial derivative command from Dr. Susko
+\newcommand{\pd}[2]{\frac{\partial#1}{\partial#2}}
+
 \renewcommand{\figurename}{Fig.}
 
 \begin{document}
 
 <<setup,include=F>>=
+library(ape)
 library(ggplot2)
 library(grid)
 library(gtable)
@@ -50,12 +54,12 @@ options(formatR.arrow=TRUE,width=90)
 setwd("/home/jrm/scm/thesis.git/")
 @
 
-\title{Improving the Reliability of Models of Molecular Evolution with modified likelihood, bootstrapping, and blah}
+\title{Understanding and Improving the Reliability of Codon Models of Evolution}
 \author{Joseph R. Mingrone}
 
 \phd
 \defencemonth{February}
-\defenceyear{2018}
+\defenceyear{2021}
 
 % \dedicate{Optionally, the thesis can be dedicated to someone, and the student can enter the dedication content here.}
 
@@ -63,13 +67,13 @@ setwd("/home/jrm/scm/thesis.git/")
 
 \begin{abstract}[s]
   % The study of life hinges on a unifying explanation for genetic diversity, evolution.
-  Describing the mechanisms of evolution at the protein and amino acid levels is useful for connecting genetic and functional change.  Papers describing implementations of the most widely used models of molecular evolution have nearly $10,000$ citations from research in a variety of fields from vaccine design to mammalian physiology.  The aim of this thesis is to build upon these models to improve their reliability.
+  Papers describing implementations of the most widely used models of molecular evolution have nearly $10,000$ citations from research in a variety of fields from vaccine design to mammalian physiology.  The aim of this thesis is to build upon these models to improve their reliability.
 
   Before the detection of positive selection at individual amino acid sites, models of molecular evolution commonly use a sweeping, protein-wide likelihood ratio test for positive selection.  Due to statistical irregularity, the distributions of the likelihood ratio statistic for these sweeping tests may not be strictly justified and thresholds determined from the distributions can give larger than expected type I error rates.  In Chapter 2, we present a modified likelihood approach that can restore statistical regularity to give tractable likelihood ratio statistic distributions for mixture models of codon evolution.
 
   To detect positive selection at individual amino acid sites, most methods use an empirical Bayes approach.  After parameters of a Markov process of codon evolution are estimated via maximum likelihood, they are passed to Bayes formula to compute the posterior probability that a site evolved under positive selection.  A difficulty with this approach is that parameter estimates with large errors can negatively impact Bayesian classification.  In Chapter 3, we present a technique we call smoothed bootstrap aggregation to accommodate the uncertainty in parameter estimates.
 
-  In Chapter 4 we do something earth shattering that transforms the world.
+  In Chapter...
 \end{abstract}
 
 \printglossary
@@ -83,7 +87,9 @@ setwd("/home/jrm/scm/thesis.git/")
 \mainmatter
 
 \chapter{Introduction}
-Although Darwin could only abstractly understand the concept of a gene or protein, the tenets of his theory of evolution apply at the molecular level.  Whether an adaptation arises in morphology, as a new behaviour, or at the molecular level, individuals expressing a beneficial trait will, on average, pass down their genes more frequently to the next generation.  However, while the same underlying processes drive evolution at the molecular level, the approaches for studying morphological and behavioural adaptations generally do not apply.  \cite{Lewontin} wrote, ``It has proved remarkably difficult to get compelling evidence for changes in enzymes brought about by selection, not to speak of adaptive changes.''.  Exponential advancements in both computing power and genetic sequencing technologies in the following decades have opened new opportunities.  As such, models of protein evolution used to detect amino acids subjected to positive selection have become more sophisticated.
+% The processes responsible for the evolution of morphology or behaviour are also relevant at the molecular level, however different approaches are required to study molecular evolution.
+In the twentieth century, new opportunities to model evolution became possible with advancements in both computing power and genetic sequencing technologies.  Dozens of statistical models have been developed and thousands of scientific papers have been published on the topic.  The aim of this thesis is to study and build upon some of these models in order to improve the reliability of detection of positive selection that has acted upon proteins and amino acids.
+
 % \begin{figure}[h!]
 %   \centering
 %   \includegraphics[scale=0.35]{images/me_growth.png}
@@ -91,25 +97,1679 @@ Although Darwin could only abstractly understand the concept of a gene or protei
 %   \label{fig:me_growth}
 % \end{figure}
 
-A fundamental theoretical concept used when modelling protein evolution is the neutral theory first proposed by Kimura \cite{K1968}.  Since the predictions of the theory have been widely validated by analysis of genetic data, it is viewed as a highly useful framework for understanding molecular evolution \cite{L1997}.  The theory asserts that the majority of genetic diversity results from the random fixation of selectively neutral mutations and advantageous mutations are rare.  This means that simply locating regions of genetic diversity is not an effective method for detecting molecular adaptation.  However, neutral theory provides predictions about the evolution of protein coding genes that can be used as the basis of a hypothesis test \cite{YB2000,Nea2007}. One set of predictions makes use of the redundancy of the genetic code \cite{K1968}.  Because of this redundancy, a nucleotide substitution within a codon can either result in a change in the amino acid product (nonsynonymous substitution) or no change in the amino acid (synonymous substitution). FIGURE HERE.  Under a strictly neutral model (i.e., no selective consequences to any change in an amino acid) the nonsynonymous (\emph{dN}) and synonymous (\emph{dS}) substitution rates would be approximately the same. This leads to a computable index of selection: the ratio of the rates of nonsynonymous to synonymous substitutions, often expressed as the Greek letter \(\omega\) (\emph{dN/dS}=\(\omega\)).  As the two rates are equal under strict neutrality, the ratio is expected to be approximately $1$. However, neutral theory does not predict all amino acid changes are selectively neutral.  It predicts that the observable divergence between lineages was the result of a neutral process.  Genetic variation with negative fitness consequences also arises, but these deleterious mutations are removed by purifying selection \cite{K1968}.  Hence, the theory predicts that functional genes will have an \(\omega<1\) due to purifying selection pressure on deleterious, nonysynonymous changes \cite{K1968}.  The relevant null hypothesis then, is that the \(\omega\) ratio will be less than or equal to $1$ in a protein subject only to purifying selection pressure. The alternative hypothesis of molecular adaptation is characterized by an \(\omega\) ratio greater than $1$.  Nonsynonymous substitutions are fixed at a rate greater than synonymous substitutions (i.e., \(\omega>1\)) when they are advantageous and fixed due to positive selection.
+\section{Genetic and Evolutionary Principles}
+Proteins are organic macromolecules that are a fundamental component of life.  They have diverse functions, which include catalyzing chemical reactions, transporting molecules, acting as toxins, effecting muscle contraction, and forming various support structures.  Although their functions vary, all proteins share two fundamental properties.  They are composed of linear chains of molecules called amino acids and their amino acid sequence is encoded for by genes.  Deoxyribonucleic acid (DNA), the genetic material of living organisms, is composed of linear sequences of molecules called nucelotides.  The four different nucleotides that form DNA are: adenine (A), thymine (T), guanine (G), and cytosine (C).  When genetic code is read by protein-building cellular machinery, a sequence of three nucleotides called a codon can have a special meaning.  Some codons instruct the machinery to start or stop building proteins, while others code for a particular amino acid.  For example, the codon CAC encodes for the amino acid histidine.
 
-%\subsection*{Counting and Fixed-Effect Methods}
+Evolution, a change in inherited proprieties in living or viral populations over generations, is a unifying biological concept.  These changes arise from mutations in genetic code and three mechanisms of evolution determine the fate of mutations.  Purifying selection reduces the chance that a deleterious mutation, one that reduces the fitness of an organism to pass on its genes, will be fixed in a population.  Conversely, positive selection acts to increase the chance that mutations conferring fitness advantages will be fixed in a population.  When a mutation has no fitness consequences, its fate in the population is left to random genetic drift.
+
+When two populations evolve from one, the DNA sequences of the two populations diverge over time.  This divergence can be measured using a quantity called the pairwise distance, the expected number of nucleotide substitutions per nucleotide site.  Of the different methods to calculate pairwise sequence distance, the proportion of different nucleotides is the simplest.  For example, two sequences that are 100 nucleotides long and have 10 nucleotides that are different are said to have a distance proportion of $p=0.1$.  Using $p$ to estimate the distance will often underestimate the true divergence unless the two sequences are very similar.  This is because common or different nucleotides between two sequences could be the result of multiple changes at nucleotide sites, which would not be accounted for with $p$.  Under a constant evolutionary rate, the pairwise distance will increase linearly, but $p$ will not.
+
+A stochastic process is a collection of random variables that are indexed by a set $T$, which often represents time.   If $X(t)=i$, the process $X$ is said to be in state $i$ at time $t$.  For the values $i$ and $j$ from some finite set of states, all $t \ge 0$, and all $s \ge 0$, if
+\begin{equation}
+  P[X(t+s) = j | X(s)=i, X(u) = x(u), 0 \le u < s]  = P[X(t+s) = j | X(s)=i] = p_{ij}
+  \label{eq:Markov}
+\end{equation}
+holds, then the stochastic process is referred to as a continuous-time Markov process and (\ref{eq:Markov}) is referred to as the Markov property, i.e., the conditional distribution of future states given present and past states depends only on the present state.  Unlike the pairwise distance approach, Markov processes are suitable for estimating the distance between sequences, because the transitions probabilities, $p_{ij}$ satisfy the Chapman-Kolmogorov theorem,
+\begin{equation}
+  p_{ij}(t_1 + t_2) = \sum_kp_{ik}(t_1)p_{kj}(t_2).
+  \label{eq:Chapman-Kolmogorov}
+\end{equation}
+This means the probability of transitioning from state $i$ to state $j$ in time $t_1+t_2$ is equal to the probably of first transitioning to any intermediate state in time $t_1$ before transitioning to state $j$ in time $t_2$.  Another property of Markov processes that is usually satisfied when modelling molecular evolution is time-homogeneity.  If (\ref{eq:Markov}) is independent of $s$, the Markov process is referred to as time-homogeneous.
+
+The Markov model of DNA evolution proposed by Jukes and Cantor (JC) in 1969 \cite{JukesCantor1969} is useful for understanding properties that are shared with many models of molecular evolution, including more sophisticated models that will be presented later.  The JC model uses a continuous time Markov process to estimate distance and model nucleotide substitution.  The model assumes that any nucleotide, $i$, has the same instantaneous rate, $\lambda$, of transitioning to any other nucleotide state, $j$.  These rates can be conveniently arranged in a rate matrix as shown in figure \ref{fig:JC69_Qmat}.
+\begin{figure}[h!]
+  \centering
+\[
+Q = \{q_{ij}\} = \bordermatrix{~      & T          & C         & A          & G        \cr
+                                    T & -3\lambda  & \lambda   & \lambda   & \lambda   \cr
+                                    C & \lambda    & -3\lambda & \lambda   & \lambda   \cr
+                                    A & \lambda    & \lambda   & -3\lambda & \lambda   \cr
+                                    G & \lambda    & \lambda   & \lambda   & -3\lambda \cr}
+\]
+\caption{The rate matrix for the Jukes-Cantor model.}
+\label{fig:JC69_Qmat}
+\end{figure}
+The probability of transitioning between states within some small time interval $h$ is $p_{ij}(h) = \lambda h + o(h)$ with $o(h)$ representing some function $g(h)$ such that $g(h)/h \rightarrow 0$ as $h \rightarrow 0$.  The probably of not transitioning is $p_{ii}(h) = 1 - \sum_{j \ne i} p_{ij}(h) = 1 - 3\lambda h + o(h)$, which gives transition probabilities within the small interval $h$ shown in figure \ref{fig:JC69_Ph}.
+\begin{figure}[h!]
+  \centering
+\[
+P(h) = \bordermatrix{~                & T             & C            & A            & G           \cr
+                                    T & 1-3\lambda h  & \lambda h    & \lambda h    & \lambda h   \cr
+                                    C & \lambda h     & 1-3\lambda h & \lambda h    & \lambda h   \cr
+                                    A & \lambda h     & \lambda h    & 1-3\lambda h & \lambda h   \cr
+                                    G & \lambda h     & \lambda h    & \lambda h    & 1-3\lambda h \cr}
+                                  + o(h)
+\]
+\caption{}
+\label{fig:JC69_Ph}
+\end{figure}
+Factoring out the identity matrix, $I$, gives $P(h) = I + Qh + o(h)$.  Starting with a result derived from the Chapman-Kolmogrov equation, this result can be used to find Kolmogrov backward equation.
+\begin{align*}
+  P(t+h) &= P(h)P(t) \\
+  &= [I + Qh + o(h)]P(t) \\
+  P(t+h)-P(t) &= QhP(t) + o(h)P(t) \\
+  [P(t+h)-P(t)]/h &= QP(t) + o(h)P(t)/h \\
+  P(t)' &= P(t)Q \tag{as $h \rightarrow 0$}
+\end{align*}
+
+for This result along with and the  theorem can be used to find the transition probabilities in some time $t$.  From the C, we can use this result and for Using this result and the Chapman-Kolmogorov theorem, This result along with the Chapman
+
+
+The transition probability matrix $P(t)$, which defines the probability of transitioning from nucleotide $i$ to $j$ in a time $t>0$ can be calculated by solving the backward Kolmorgorov equation $P'(t)=QP(t)$.  The solution to the backward Kolmorgorov equation for the JC model is shown in figure \ref{fig:JC69_Pmat}.
+\begin{figure}[h!]
+  \centering
+\[
+P(t) = \bordermatrix{~  & T         & C           & A           & G    \cr
+               T & p_{0}(t)  & p_{1}(t)   & p_{1}(t)   & p_{1}(t)  \cr
+  C & p_{1}(t)    & p_{0}(t) & p_{1}(t)   & p_{1}(t)  \cr
+  A & p_{1}(t)    & p_{1}(t)   & p_{0}(t) & p_{1}(t)  \cr
+  G & p_{1}(t)    & p_{1}(t)   & p_{1}(t)   & p_{0}(t) \cr}
+\text{, with}\left\{ 
+\begin{array}{l l}
+  p_{0}(t) = \frac{1}{4}+\frac{3}{4}e^{-4\lambda t}\\
+  p_{1}(t) = \frac{1}{4}-\frac{1}{4}e^{-4\lambda t}
+\end{array} \right.
+\]
+\caption{The transition probability matrix for the Jukes-Cantor model.}
+\label{fig:JC69_Pmat}
+\end{figure}
+
+Each row of the transition-probability matrix is a probability distribution, and thus sums to $1$.  When $t=0$ the transition-probability matrix is the identity matrix, i.e. in time $t=0$ the current nucleotide state can not change.
+
+
+
+The type of data modelled is an alignment of DNA sequences and a phylogenetic tree, which infers the evolutionary relationship among the lineages.  The sequence alignment is often described as an $s \times n$ matrix, $\mathbf{X}$, with $x_{jh}$ the $h$th nucleotide in the $j$th sequence and $\mathbf{x}_h$ the $h$th column of $\textbf{X}$. A sample tree with values at a particular site are shown in figure.
+\begin{figure}[h!]
+  \centering
+  %\includegraphics[scale=0.5]{sample_data.jpg}
+  \caption[A phylogenetic tree with 6 extant lineages.]{A phylogenetic tree with 6 extant lineages.  The nucleotides for a single site are shown at the tips (nodes 1 to 6).  Ancestral nodes are labelled 0, 7, 8, 9, 10 with the root node 0.  Branch lengths, denoted by $t_{i}$, are a measure of the expected number of substitutions for a nucleotide site.}
+  \label{fig:sample_data}
+\end{figure}
+\subsection{Likelihood Calculation}
+Starting with the root node labelled 0, lineages are inferred to have diverged  according to the branching of the tree and the distances between divergent lineages is denoted by the branch lengths labelled $t_i$.  Extant lineages with known DNA sequences are at the tips of the tree while ancestral lineages with unknown DNA sequences are at the internal nodes.  In the tree shown in figure, the nucleotides, TCACCG, for a single site, column $\mathbf{x}_h$ in $\textbf{X}$, are shown.  Because the evolution of sites is assumed to occur independently, the probability of the entire data is the product of the probabilities of the data at each site.  The log likelihood of the data is
+\[ l = log[L(\lambda)] = log\left[\prod_{h=1}^np(\mathbf{x}_h|\lambda)\right] = \sum_{h=1}^nlog\left[p(\mathbf{x}_h|\lambda)\right]. \]
+In class, we discussed how to calculate the likelihood function for the linkage parameter for fully informative gametes in a three-generation pedigree.  When the phase of the parents or grandparents was unknown, we summed over those possible states to make the calculation.  The likelihood calculation here is similar because the states of the sites at the ancestral nodes are unknown.  For example, at site $h$ the probability of transitioning from the unknown state in ancestral node 7 ($x_{7,h}$) to T in node 1 ($x_{(1,h)}=T$) for a branch length $t_1$ is $ P_{x_{(7,h)},x_{(1,h)}=T}(t_1) = \sum_{k=ACTG}P_{(x_{7,h}),(x_{(1,h)}=T)|x_{(7,h)}=k}(t_1)$.  Omitting the subscript h for the states, 
+\begin{eqnarray}
+  f(x_h|\lambda) &=& \sum_{x_{0}}\sum_{x_{6}}\sum_{x_{7}}\sum_{x_{8}}\sum_{x_{9}}\sum_{x_{10}} \pi_{x_{0}}P_{x_{0}x_{9}}(t_9) \nonumber \\
+    && \times P_{x_{9}x_{7}}(t_7)P_{x_{7}T}(t_1)P_{x_{7}C}(t_2)P_{x_{9}x_{8}}(t_8) \nonumber \\ 
+    && \times P_{x_{8}A}(t_3)P_{x_{8}C}(t_4)P_{x_{6}x_{10}}(t_{10})P_{x_{10}C}(t_5)P_{x_{10}G}(t_6),
+\end{eqnarray}
+which is the probability of the root node, $\pi_{x_{0}} = \frac{1}{4}$, multiplied by the transition probabilities along the branches of the tree.  Because there are $4^{s-1}$ possible combinations for $s-1$ interiors nodes, computation of the probability of the data over all $n$ sites can be computationally expensive.  For amino acid or codon sequences there are $20^{s-1}$ or $61^{s-1}$ combinations so computation is even more expensive.  Algorithms that identify common factors and calculate them a single time according to Horner's rule are employed.  A commonly used algorithm is Flesenstein's pruning algorithm \cite{Felsenstein1981}.
+
+
+The Jukes and Cantor model of nucleotide evolution, due to its simplicity, is a useful example of a Markov model of molecular evolution.  The states are the four nucleotides, A, T, G, and C and the instantaneous rate of substitution between nucleotides is always $\lambda$.  It is convenient to arrange these transitions into a matrix,
+
+
+
+
+probability of transition from nucleotide $i$ to $j$ is equal to $\lambda$ for all states.  The instantaneous rate of substitution between 
+
+
+- Early models like Jukes and Cantor and Muse and Gaut
+- Early Codon models
+- Review of the main statistical tasks (hypothesis testing, parameter estimation, and posterior inference).  It will be valuable to describe how they represent different levels of difficulty, and pose unique statistical challenges.
+- Development of Codon Models for Variable Selection Pressures
+ 
+\section{Basics of evolution: purifying selection, neutral evolution, positive selection and redundancy of the Genetic Code}
+\section{Briefly Discuss: Markov Processes, Maximum likelihood, Self and Liang, Bayes}
+- - talk about basic stuff like sequences, lR, self and liang, say something about what I've contributed, It can help readers to have new accomplishments in the intro
+
+\section{Motivation and Overview of Thesis}
+I don’t think that you meed a separate section for "modl", SBA, and additional branch-site work plus a conclusion in the Into.  You will be going over all of them in great detail, and the final chapter will be a formal conclusion section.  I think you can combine all that into a single section in the Intro with a title like “Motivation and Overview of Thesis”. You could get away with as little as 1 paragraph to describe how the branch-site models remain widely used and yet there also remain some un-addressed statistical issues; this will be the motivation for the thesis, and the central theme will be improved inference under this popular family of codon models.  Then, you simply have one paragraph each for the motivation and design of the work in the next three chapters, each given as kind of conceptual “roadmap” but leaving out the details that will follow.
+
+
+%Identifying positively selected amino acid sites is a challenging statistical task that is useful for investigating the functional consequences of molecular change \citep{yang2005power}.  Several approaches have been developed to detect positive selection within a protein \citep[reviewed in][]{pond2005not,anisimova2009investigating}, but their reliability varies according to the properties of the data in hand.  The most widely used methods employ a codon model to detect an excess in the rate of nonsynonymous substitutions relative to synonymous substitutions ($dN/dS = \omega > 1$), which is an indication of evolution by positive selection.  Proteins evolving under positive selection must retain the capacity to fold into complex structural and functional domains, so the majority of amino acid substitutions will be subject to purifying selection pressure, with $\omega < 1$ \citep{kimura1968evolutionary}.  From extensive surveys of positive selection in real genes, we expect that only a small fraction of amino acid sites will be subject to adaptive change and exhibit an $\omega > 1$ \citep[e.g., ][]{anisimova2007phylogenomic,ge2008protein}.  The sparseness of these sites makes them challenging to identify.
+
+A fundamental concept used to model protein evolution is the neutral theory first proposed by Kimura \cite{K1968}.  Since the predictions of the theory have been widely validated by analysis of genetic data, it is viewed as a highly useful framework for understanding molecular evolution \cite{L1997} and in particular, for detecting molecular adaptation.  The theory asserts that the majority of genetic diversity results from the random fixation of selectively neutral mutations and advantageous mutations are rare.  This means that simply locating regions of genetic diversity is not effective for detecting molecular adaptation.  However, neutral theory provides predictions about the evolution of proteins that can be used as the basis of a hypothesis test \cite{YB2000,Nea2007}. One set of predictions makes use of the redundancy of the genetic code \cite{K1968}.  Because of this redundancy, a nucleotide substitution within a codon can either result in a change in the amino acid product (nonsynonymous substitution) or no change in the amino acid (synonymous substitution). FIGURE HERE.  Under a strictly neutral model (i.e., no selective consequences to any change in an amino acid) the nonsynonymous (\emph{dN}) and synonymous (\emph{dS}) substitution rates would be approximately the same. This leads to a computable index of selection: the ratio of the rates of nonsynonymous to synonymous substitutions, often expressed as the Greek letter \(\omega\) (\emph{dN/dS}=\(\omega\)).  As the two rates are equal under strict neutrality, the ratio is expected to be approximately $1$. However, neutral theory does not predict all amino acid changes are selectively neutral.  It predicts that the observable divergence between lineages was the result of a neutral process.  Genetic variation with negative fitness consequences also arises, but these deleterious mutations are removed by purifying selection \cite{K1968}.  Hence, the theory predicts that functional genes will have an \(\omega<1\) due to purifying selection pressure on deleterious, nonysynonymous changes \cite{K1968}.  The relevant null hypothesis then, is that the \(\omega\) ratio will be less than or equal to $1$ in a protein subject only to purifying selection pressure. The alternative hypothesis of molecular adaptation is characterized by an \(\omega\) ratio greater than $1$.  Nonsynonymous substitutions are fixed at a rate greater than synonymous substitutions (i.e., \(\omega>1\)) when they are advantageous and fixed due to positive selection.
+
 Two general categories of methods for detecting positively selected amino acid sites include counting and fixed-effect methods.  Counting methods employ ancestral reconstruction of codon states for all internal nodes of a phylogenetic tree to obtain counts of the synonymous and nonsynonymous changes along each of its branches.  The counts inferred for a given site are used to test if $\omega \neq 1$.  Some counting methods use parsimony \citep{fitch1997long,bush1999positive,suzuki1999method}, and others likelihood \citep{suzuki2004new,nielsen2002mapping,nielsen2002detecting,suzuki2004false,pond2005not} to infer the ancestral codon states.  The reconstructions are often similar, but under the likelihood approach, uncertainty about the inference can be summarized via the posterior probabilities of the ancestral states.  Thus, the parsimony based methods must assume that these uncertainties are irrelevant to the statistical test.  While this makes the approach attractive for very large datasets where reliable reconstructions can be obtained relatively quickly \citep{lemey2012counting}, widespread use is hindered by a lack of power when the level of divergence is too low or by the negative impact of substitutional saturation when the level of divergence is too high \citep{pond2005not}.
 
 An alternative approach is to treat each site as independently relevant to the question of evolution by positive selection, and attempt to fit an $\omega$ parameter to the data at each site.  Thus, the effect of each site on the task of $\omega$ inference is fixed.  Model based testing for $\omega \neq 1$ can be carried out via a standard likelihood ratio test (LR), and no assumptions are required about the distribution of selection pressure, $\omega$.  Although $\omega$ is treated as a site-specific variable, other important variables in the codon model (e.g., branch lengths) are shared among sites, with their values estimated jointly from the complete set of sites.  Results obtained by using these modelling ideas \citep{pond2005not, massingham2005detecting} are encouraging \citep{scheffler2014validity}, however, $\chi^2$ approximations to the distribution of the test statistic assume relatively large numbers of taxa, which is often not the case.  The lack of independence of data across taxa due to homology creates further difficulties for $\chi^2$ approximations.
 
-% \subsection*{Empirical Bayes Methods}
 A third approach for detecting positive selection at amino acid sites, which is the focus of this thesis, treats the value of \(\omega\) at a site as the realized value of a random variable.  From an alignment of protein coding DNA sequences, the \(\omega\) ratio can be estimated using maximum likelihood under an explicit model of codon evolution \cite{BY2005}.  However, because proteins subject to positive selection must still maintain the capacity to fold into complex structural and functional domains\cite{YNGP2000}, most amino acid sites will still be under purifying selection pressure. Only a small fraction will be subject to adaptive change and exhibit an \(\omega\) ratio \(>\) $1$. This means a single \(\omega\) ratio averaged over the entire sequence of such a protein would be less than $1$ and positive selection would go undetected. This problem is avoided by modeling several codon-site classes subject to different levels of selection pressure (e.g., \(\omega<1\), \(\omega=1\), \(\omega>1\)) \cite{NY1998}.  A Bayesian method can then be used to calculate a posterior probability (PP) that a given codon-site evolved under one of the site classes in the model.  Additionally, a posterior mean (PM) \(\omega\) can be computed as a measure of the selection pressure at each site.  Yang and colleagues introduced and implemented Markov models of codon evolution \cite{GY1994,NY1998} that have been widely used to accomplish these tasks.
 
-MERGE PARAGRAPH BELOW INTO PARAGRAPH ABOVE
+There are recommendations \citep[e.g.,][]{yang1998synonymous} to use a pre-screen that fits two models: one with a distribution that excludes values of \(\omega>1\), and another with the same distribution, except with weight on values of \(\omega>1\) permitted.  The nested-model pre-screening to test if the data conveys any evidence of positive selection is carried by LR test, usually applied with a threshold for declaring a protein under positive selection determined from a chi-square or mixture of chi-square distributions.  While it is known that such distributions are not strictly justified due to the statistical irregularity of the problem, the hope has been that the resulting tests are conservative and do not lose much power in comparison with the same test using the unknown, correct threshold.  In Chapter 2, it is shown that commonly used thresholds need not yield conservative tests, but instead give larger than expected type I error rates.  A modified LR test is described that restores statistical regularity.
 
-Identifying positively selected amino acid sites is a challenging statistical task that is useful for investigating the functional consequences of molecular change \citep{yang2005power}.  Several approaches have been developed to detect positive selection within a protein \citep[reviewed in][]{pond2005not,anisimova2009investigating}, but their reliability varies according to the properties of the data in hand.  The most widely used methods employ a codon model to detect an excess in the rate of nonsynonymous substitutions relative to synonymous substitutions ($dN/dS = \omega > 1$), which is an indication of evolution by positive selection.  Proteins evolving under positive selection must retain the capacity to fold into complex structural and functional domains, so the majority of amino acid substitutions will be subject to purifying selection pressure, with $\omega < 1$ \citep{kimura1968evolutionary}.  From extensive surveys of positive selection in real genes, we expect that only a small fraction of amino acid sites will be subject to adaptive change and exhibit an $\omega > 1$ \citep[e.g., ][]{anisimova2007phylogenomic,ge2008protein}.  The sparseness of these sites makes them challenging to identify.
+When the null hypothesis of no positive selection is rejected via the LR test, site-wise analysis is warranted.  Site-wise analysis is carried out using Bayes rule to calculate the posterior probability that a site \(h\) evolved under some estimated value of \(\omega\), given the data at site \(h\).  This approach is referred to as empirical Bayes (EB) because the marginal distribution of \(\omega\) is determined from the data.  Conclusions regarding the evolution at a site are made based on the estimated \(\omega\)-values along with their associated posterior probabilities conditioned on the data at the site.  For example, when the largest posterior probability for a site is associated with a value of \(\omega>1\), this is taken as evidence of positive selection at that site.
 
+A difficulty with this approach is that parameter estimates with large errors can negatively impact Bayesian classification.  By assigning priors to some parameters, Bayes Empirical Bayes (BEB) mitigates this problem.  However, as implemented, it imposes uniform priors, which causes it to be overly conservative in some cases.  When standard regularity conditions are not met and parameter estimates are unstable, inference, even under BEB, can be negatively impacted.  In Chapter 3, an alternative to BEB called smoothed bootstrap aggregation (SBA) is presented.  With SBA, boostrapping is used to respample site patterns from an alignment of protein coding DNA sequences to accommodate the uncertainty in the parameter estimates.  Deriving the correction for parameter uncertainty from the data in hand, in combination with kernel smoothing techniques, improves site specific inference of positive selection.  BEB to SBA are compared by simulation and real data analysis.  Simulation results show that SBA balances accuracy and power at least as well as BEB, and when parameter estimates are unstable, the performance gap between BEB and SBA can widen in favour of SBA.
 
-There are recommendations \citep[e.g.,][]{yang1998synonymous} to use a pre-screen that fits two models: one with a distribution that excludes values of \(\omega>1\), and another with the same distribution, except with weight on values of \(\omega>1\) permitted.  This nested-model pre-screening is used to test if the data conveys any evidence of positive selection.  When the null hypothesis of no positive selection is rejected using a LR test, site-wise analysis is warranted.  Site-wise analysis is carried out using Bayes rule to calculate the posterior probability that a site \(h\) evolved under some estimated value of \(\omega\), given the data at site \(h\).  This approach is referred to as empirical Bayes (EB) because the marginal distribution of \(\omega\) is determined from the data.  Conclusions regarding the evolution at a site are made based on the estimated \(\omega\)-values along with their associated posterior probabilities conditioned on the data at the site.  For example, when the largest posterior probability for a site is associated with a value of \(\omega>1\), this is taken as evidence of positive selection at that site.
-
-\chapter{Modified Likelihood}
+\chapter{A modified likelihood approach to explore and restore regularity when testing for positive selection}
 \section{Introduction}
+Tests for detection of positive selection are important for understanding the processes of molecular evolution \citep{nielsen1998likelihood} and the likelihood methods for codon-based models developed in \cite{yang2000codon} are among the most widely used approaches.  An important component of the approach is the likelihood ratio (LR) test, which is used to test for evidence of positive selection within a gene before testing for positive selection at individual amino acid sites (sites).  Standard likelihood theory gives that, when certain regularity conditions are satisfied, the distribution of an LR statistic under the null hypothesis is that of a chi-square random variable with degrees of freedom equal to the difference in the number of parameters fit under the alternative and null hypotheses.  LR tests of positive selection usually employ two additional parameters under the alternative model, often an $\omega>1$ parameter to quantify the positive selection and another parameter for the proportion of sites evolving under $\omega>1$.  This suggests the LR statistics follows a $\chi_2^2$ null distribution.  It has long been recognized, however, that the regularity conditions required for standard likelihood theory are not satisfied for such LR tests of positive selection \citep{anisimova2001accuracy}.
+
+Simulations suggest that a $\chi_2^2$ distribution will give 5\% thresholds for the LR test that are too large \citep{anisimova2001accuracy,wong2004accuracy}.  Drawing upon the non-standard likelihood theory of \cite{self1987asymptotic}, \cite{swanson2003pervasive} indicate that, for model comparison they describe as M8a vs M8, theory supports a 50:50 mixture of a point mass at 0 and a $\chi_1^2$ distribution or, more concisely, a $\chi_0^2/2+\chi_1^2/2$ distribution.  However, \cite{wong2004accuracy} and \cite{anisimova2001accuracy} raised concerns about whether this is the appropriate distribution for comparison.  Nevertheless, the $\chi_0^2/2+\chi_1^2/2$ distribution and, to be more conservative, the $\chi_1^2$ distribution are the most frequently used distributions.  While there have been some simulation studies indicating that the $\chi_1^2$ distribution is indeed conservative in the sense that LR statistics generated under the null tend to be smaller than predicted by a $\chi_1^2$ distribution \citep{anisimova2001accuracy,wong2004accuracy,berlin2005testing}, some of these same studies have found settings where the false positive rates are larger than 5\% \citep{wong2004accuracy,berlin2005testing}.
+
+The lack of fit of chi-square and mixture of chi-square distributions to the null distribution of the likelihood ratio statistic is not entirely surprising since, due to the irregularity of the models, likelihood theory does not support any particular large sample null distribution.  Indeed, we expect the correct distribution generally depends on the particular parameters in the generating null distribution.  In any case, we will argue that the $\chi_0^2/2+\chi_1^2/2$ is often anti-conservative: under the null, LR statistics tend to be larger than is predicted from this distribution.  Borrowing from similar methods in mixture model tests of heterogeneity \citep{chen2001modified} we introduce a modified LR test.  The test statistic is obtained in the same way as for the LR test but with the likelihood replaced by one that penalizes small mass being placed on $\omega > 1$ relative to $\omega=1$.  The advantage with this approach is that it yields a tractable $\chi_0^2/2+\chi_1^2/2$ limiting null distribution.
+
+\section{Theory and Methods}
+The base model of \cite{yang2000codon} is a conventional stationary time-reversible Markov model of codon sequence evolution described in \cite{goldman1994codon} with instantaneous rate matrix for transitions from codon $i$ to $j$ given by
+\[ Q_{ij}  = \left\{ \begin{array}{ll}
+0 & \mbox{if $i$ and $j$ differ at two or three nucleotide positions} \\
+\pi_j & \mbox{if $i$ and $j$ differ by one synonymous transversion} \\
+\kappa\pi_j& \mbox{if $i$ and $j$ differ by one synonymous transition} \\
+\omega\pi_j& \mbox{if $i$ and $j$ differ by one nonsynonymous transversion} \\
+\omega\kappa\pi_j& \mbox{if $i$ and $j$ differ by one nonsynonymous transition} \\ \end{array} \right. \]
+where $\kappa$ is the transition/transversion parameter, $\pi_j$ is the stationary frequency of codon $j$ and $\omega$ is the parameter quantifying selection pressure as purifying ($\omega<1$), neutral ($\omega=1$) or positive ($\omega>1$).  To model varying selection pressure at sites, the $\omega$ at a site is treated as coming from a probability distribution, which we refer to as the mixing distribution, with various distributional forms allowed \citep{yang2000codon}.  The null hypothesis of interest is that there is no positive selection, which corresponds to the distribution of $\omega$ having all of its mass between 0 and 1.  The alternative is that the distribution allows some positive probability of an $\omega >1$.  For example, following the naming conventions of \cite{yang2000codon} and \cite{berlin2005testing}, null model M1a uses a distribution with mass at an $\omega_0<1$ and at $\omega_1=1$.  The corresponding alternative model, M2a, adds an $\omega_2>1$ to the M1a distribution.
+
+For any of the models considered, the probability of a site pattern $x$ can be expressed as a mixture over choices of $\omega$ of the following form
+\begin{equation}
+\label{eq:mixmod}
+p(x;\beta,p_+) = p_0 p(x|\omega < 1; \zeta,\lambda) + (1-p_+)(1-p_0) p(x|1;\zeta) + p_+ (1-p_0) p(x|\omega_+;\zeta).
+\end{equation}
+Theoretical derivations are simpler with this unconventional parameterization.  Usually the weights on $\omega$ values are parameters.  For instance, model M2a replaces $(1-p_+)(1-p_0)$ and $p_+(1-p_0)$ with $p_1$ and $p_2$.  For both models M1a and M2a there is a single $\omega_0<1$,
+so $p(x|\omega<1;\zeta,\lambda)=p(x|\omega_0;\zeta)$.  Here $\zeta$ denotes parameters common to each $\omega$ and includes edge-lengths and substitution model parameters.  The parameter $\omega_+$ is restricted to be at least 1 and the parameters in $\lambda$ are those involved in the mixture model under purifying selection.  For instance, for model M8a, $\lambda$ gives the parameters of the beta distribution.  We let $\psi=(\zeta^T,\lambda^T,p_0)^T$, the parameters that are common to both null and alternative models.  The LR statistic is
+\begin{equation}
+  \label{eq:lrs}
+  2\{l(\hat p_+,\hat\omega_+,\hat\psi) - l_H(\hat\psi_H)\}
+\end{equation}
+where $l$ and $l_H$ denote the log likelihoods under the alternative and null models, and $\hat p_+$, $\hat\omega_+$, $\hat\psi$, and $\hat\psi_H$ denote the maximum likelihood (ML) estimates under the alternative and null hypotheses.
+
+The likelihood theory of \cite{self1987asymptotic} gives appropriate null distributions in a number of cases where usual regularity conditions do not hold, but it does not generally apply to (\ref{eq:lrs}).  This is because there can be multiple parameter values under the alternative hypothesis that give the null model.  If the alternative model allows mass at $\omega=1$, any $\omega_+>1$ and $p_+=0$ gives the null model.  In addition, for null models that allow mass at $\omega=1$, $\omega_+=1$ and any $p_+$ gives the null model.  The M8a vs M8 comparison considered in \cite{swanson2003pervasive} finesses this difficulty by not allowing the alternative model to have mass at both an $\omega=1$ and an $\omega_+>1$.  Because of this restriction, whenever the true null generating model has mass on $\omega=1$, the only alternative model parameterization giving the generating distribution has $\omega_+=1$; $p_+=0$ and $\omega_+>1$ no longer gives the generating model.  The \cite{swanson2003pervasive} approach restores regularity, but may make it more difficult to model settings where the alternative is true but there is also appreciable mass near $\omega=1$.  In what follows, the model is allowed to have mass at $\omega=1$ under both the null and alternative
+model, with additional mass at an $\omega_+>1$ under the alternative hypothesis.
+
+The regularity problems for the Self and Liang theory does not arise if $\omega_+>1$ is fixed, in which case the LR statistic is
+\begin{equation}
+  \label{eq:lrs_sl}
+  2\{l(\hat p_+(\omega_+),\omega_+,\hat\psi(\omega_+)) - l_H(\hat\psi_H)\}
+\end{equation}
+where $\hat p_+(\omega_+)$ and $\hat\psi(\omega_+)$ denote the ML estimates of $p_+$ and $\psi$ holding $\omega_+$ fixed.  With $\omega_+$ fixed, the only parameter giving a null model is $p_+=0$.  Because that value is on the boundary of the parameter space, standard chi-square results for the limiting distribution of the likelihood ratio statistic do not apply.  However, case 5 of \cite{self1987asymptotic} gives that the large sample distribution is $\chi_0^2/2 + \chi_1^2/2$.  This allows us to say something about the distribution of the usual LR statistic (\ref{eq:lrs}).  Because (\ref{eq:lrs}) can be obtained by maximizing (\ref{eq:lrs_sl}) over $\omega_+\ge 1$, it is sure to be larger than any test statistic (\ref{eq:lrs_sl}) that uses a fixed $\omega$.  Thus, since (\ref{eq:lrs_sl}) has a $\chi_0^2/2 + \chi_1^2/2$ distribution, usual LR statistic values (\ref{eq:lrs}) will tend to be larger than values predicted by the $\chi_0^2/2 + \chi_1^2/2$ distribution.  How much larger LR statistic values tend to be depends upon how much (\ref{eq:lrs_sl}) tends to vary over $\omega_+>1$ which in turn likely depends on how much of the mass of the generating distribution is near $\omega=1$.  Thus, using a $\chi_0^2/2+\chi_1^2/2$ distribution to calculate thresholds for the LR test can generally be expected to give an anti-conservative test: the null hypothesis is rejected too frequently when it is true.
+
+The main reason that the null distribution of the LR statistic is intractable is that $p_+=0$ and any $\omega_+ > 1$ gives the null model.  A similar difficulty arises when testing for mixture structure or heterogeneity in mixture models.  The distribution for the data, $x$, is $\gamma p(x;\theta_1)+(1-\gamma) p(x;\theta_2)$ where $p(x;\theta)$ is a parametric distribution.  A hypothesis of particular interest is that the data corresponds to a single distribution $p(x;\theta)$.  If this is the case, the population might be considered homogeneous when it is otherwise heterogeneous with $\gamma \times 100\%$ of the individuals having parameter $\theta_1$ and the rest having parameter $\theta_2$.  As with tests for positive selection, the reason for a non-standard LR statistic distribution in mixture models is that multiple parameter settings correspond to the null hypothesis: (i) $\gamma=0$ and any $\theta_1$ or (ii) $\theta_1=\theta_2$ and any $\gamma$.  To restore simple limiting distributions while maintaining a test statistic similar to the LR statistic, \cite{chen2001modified} replace log likelihoods with modified log likelihoods that add a term, $C\log[\gamma(1-\gamma)]$ where $C>0$ is a tuning parameter.  Because this term gets very large in magnitude but negative when $\gamma$ is close to 0 or 1, the modified log likelihood is maximized by values with $\gamma$ away from these boundaries, implying that the only way modified ML estimates under the null can approach true values is if $\hat \theta_1 \approx \hat \theta_2$, which restores the sort of regularity needed for chi-square or mixture of chi-square distributions.  The strategy has been effective in a number of different settings \citep[cf.][and references therein]{chen2001modified,chen2004testing,fu2009modified} and we present a similar approach here.
+
+The modified log likelihood we use under the alternative hypothesis is
+\begin{equation}
+  \label{eq:modlnL}
+  \tilde l(p_+,\omega_+,\psi) = l(p_+,\omega_+,\psi) + C \log(p_+)
+\end{equation}
+The modified LR statistic is then
+\begin{equation}
+  \label{eq:modlrs}
+  2\{\tilde l(\hat p_+,\hat\omega_+,\hat\psi) - l_H(\hat\psi_H)\}
+\end{equation}
+where now the estimates denote the maximizers of the modified log likelihood.  We show in Appendix I, that for $C>0$ the large sample distribution of (\ref{eq:modlrs}) under the null hypothesis is $\chi_0^2/2+\chi_1^2/2$.  Here $C>0$ is a tuning parameter.  While the theory holds for any $C>0$, choosing $C$ too small makes the modified LR statistic too similar to the LR statistic, leading to similar difficulties in behaviour.  We investigate the sensitivity to $C$ through simulations.
+
+We used simulation to estimate LR and modified LR statistic cumulative distribution functions (CDFs) under the null hypothesis.  For each of six simulation scenarios, 10,000 sequence alignments $500$ codons long were generated using 5-, 10-, and 32-taxon trees with branch lengths summing to 3, 6, and 9.  The $5$-taxon tree (Fig. {\ref{sfig:5tree}}) was the same one used in the simulation studies of \cite{wong2004accuracy} and \cite{mingronesba} and the $10$-  and $32$-taxon trees have caterpillar (Fig. {\ref{sfig:10tree}}) and balanced (Fig. {\ref{sfig:32tree}}) topologies.  Sites were simulated to evolve under the M1a model \citep[described in][]{wong2004accuracy,yang2005bayes}, which places weight $p_0$ on a single $\omega_0<0$, with the remaining weight, $1-p_0$, placed on $\omega=1$; thus, the mixing distribution is determined by $(p_0,\omega_0)$.  Each simulation scenario used $\kappa=1$ and equal codon frequencies, but $(p_0,\omega_0)$ varied over scenarios.
+\begin{figure}
+  \centering
+  \begin{subfigure}[t]{.49\textwidth}
+    \centering
+        <<5ttree,echo=F,warning=F>>=
+    phylo.5.t <- read.tree(text="((1:0.333333,2:0.333333):0.333333,3:0.666667,4:0.666667,5:0.666667);")
+    plot(phylo.5.t,cex=2)
+    edgelabels(c('x','x','x','2x','2x','2x'),adj=c(0,1),bg='white',cex=1.5,col='black',frame="none")
+        @
+\caption{5-taxon tree}
+\label{sfig:5tree}
+\end{subfigure}
+\begin{subfigure}[t]{.49\textwidth}
+  \centering
+      <<10ttree,echo=F,warning=F>>=
+    phylo.10.t <- read.tree(text="(((((1:0.1,2:0.1):0.1,3:0.2):0.1,4:0.3):0.1,5:0.4):0.1,((((6:0.1,7:0.1):0.1,8:0.2):0.1,9:0.3):0.1,10:0.4):0.1);")
+    plot(phylo.10.t,cex=2)
+      edgelabels(c('x','x','x','x','x','x','2x','3x','4x','x','x','x','x','x','x','2x','3x','4x'),adj=c(0,1),bg='white',cex=1.5,col='black',frame="none")
+        @
+\caption{10-taxon tree}
+\label{sfig:10tree}
+\end{subfigure}
+\begin{subfigure}[t]{.75\textwidth}
+  \centering
+      <<32ttree,echo=F,warning=F>>=
+    phylo.32.t <- read.tree(text="(((((1:0.04839,2:0.04839):0.04839,(3:0.04839,4:0.04839):0.04839):0.04839,((5:0.04839,6:0.04839):0.04839,(7:0.04839,8:0.04839):0.04839):0.04839):0.04839,(((9:0.04839,10:0.04839):0.04839,(11:0.04839,12:0.04839):0.04839):0.04839,((13:0.04839,14:0.04839):0.04839,(15:0.04839,16:0.04839):0.04839):0.04839):0.04839):0.04839,((((17:0.04839,18:0.04839):0.04839,(19:0.04839,20:0.04839):0.04839):0.04839,((21:0.04839,22:0.04839):0.04839,(23:0.04839,24:0.04839):0.04839):0.04839):0.04839,(((25:0.04839,26:0.04839):0.04839,(27:0.04839,28:0.04839):0.04839):0.04839,((29:0.04839,30:0.04839):0.04839,(31:0.04839,32:0.04839):0.04839):0.04839):0.04839):0.04839);")
+    par(mar=c(0,0,2,0))
+    plot(phylo.32.t)
+        @
+\caption{32-taxon tree}
+\label{sfig:32tree}
+\end{subfigure}
+\caption[]{Phylogenetic tree topologies used in simulation studies, with relative edge lengths shown for the 5- and 10-taxon trees.  All edge lengths are equal in the rooted 32-taxon tree.}
+\label{fig:trees}
+\end{figure}
+
+To determine the effect of likelihood modification on power, sequence alignments $500$ codons long were simulated under the M2a alternative model \citep{wong2004accuracy,yang2005bayes}, which, by comparison with the M1a mixing distribution, has an additional component, $\omega_2>1$.  The mixing distributions used in simulations had $(p_0,\omega_0)=(0.45,0.5)$ with $(p_2,\omega_2)$ varying over simulation settings.  Codon frequencies were $1/61$ and $\kappa=1$, as was the case for simulations under the null hypothesis and the tree toplogies also matched those used in the simulations under the null.  For each $\omega$-distribution scenario, $10,000$ alignments were generated for the $5$- and $10$-taxon trees and $1000$ alignments for the $32$-taxon tree.  To ensure that comparisons of power with and without likelihood modification corresponded to the same false positive rate, we calibrated the thresholds for significant LR statistics.  For this, $10,000$ sequences were generated under the null with the weight on $\omega>1$ under the alternative settings added to $\omega=1$.  The $95$th percentiles of these LR statistic distributions under both M1a/M2a (C=$0$) and M1a/M2a (C=$2$) were used as the thresholds for calculating power.
+
+\section{Results and Discussion}
+\subsection{Modified LR distribution approximations are accurate for most settings}
+Figure \ref{fig:CDF32taxaTL9} shows the estimated LR and modified LR statistic CDFs for the M1a/M2a nested model pair for the simulations under the null using the 32-taxon tree with branch lengths summing to $9$.  With likelihood modification, we used a tuning parameter of $C=2$.  Other tuning parameters were tested, but the LR statistic CDFs for values of $C$ between $2$ and $5$ were indistinguishable from those with $C=2$, and CDFs for values of $C<2$ were always between the one for $C=2$ and the one for the unmodified LR statistics.  CDFs for $\chi_0^2/2 + \chi_1^2/2$ are also included in each plot.  For all of the CDFs in Figure \ref{fig:CDF32taxaTL9}, the modified LR statistic distributions are better approximated by a $\chi_0^2/2 + \chi_1^2/2$ distribution than the corresponding distributions without likelihood modification.  Tree topology made little difference as both the LR statistic and modified LR statistic CDFs were similar when data were simulated with different topologies.  Figure \ref{fig:CDF5taxaTL3} and supplementary Figures \ref{fig:CDF5taxaTL6} - \ref{fig:CDF32taxaTL6} contain the LR statistic CDFs for the remaining simulation scenarios.
+\begin{figure}
+    \centering
+<<CDF32taxaTL9,echo=F,warning=F>>=
+    rm(list=ls())
+    p0_0.25_w0_0.25_32_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_9/data/p0_0.25_w0_0.25_32_taxa_tl_9_m1a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.25_32_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_9/data/p0_0.25_w0_0.25_32_taxa_tl_9_m2a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.25_32_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_9/data/p0_0.25_w0_0.25_32_taxa_tl_9_c2_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_32_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_9/data/p0_0.25_w0_0.5_32_taxa_tl_9_m1a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_32_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_9/data/p0_0.25_w0_0.5_32_taxa_tl_9_m2a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_32_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_9/data/p0_0.25_w0_0.5_32_taxa_tl_9_c2_lnLs.csv",sep=',')
+
+    p0_0.5_w0_0.25_32_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_9/data/p0_0.5_w0_0.25_32_taxa_tl_9_m1a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.25_32_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_9/data/p0_0.5_w0_0.25_32_taxa_tl_9_m2a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.25_32_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_9/data/p0_0.5_w0_0.25_32_taxa_tl_9_c2_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_32_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_9/data/p0_0.5_w0_0.5_32_taxa_tl_9_m1a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_32_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_9/data/p0_0.5_w0_0.5_32_taxa_tl_9_m2a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_32_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_9/data/p0_0.5_w0_0.5_32_taxa_tl_9_c2_lnLs.csv",sep=',')
+
+    p0_0.75_w0_0.25_32_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_9/data/p0_0.75_w0_0.25_32_taxa_tl_9_m1a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.25_32_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_9/data/p0_0.75_w0_0.25_32_taxa_tl_9_m2a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.25_32_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_9/data/p0_0.75_w0_0.25_32_taxa_tl_9_c2_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_32_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_9/data/p0_0.75_w0_0.5_32_taxa_tl_9_m1a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_32_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_9/data/p0_0.75_w0_0.5_32_taxa_tl_9_m2a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_32_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_9/data/p0_0.75_w0_0.5_32_taxa_tl_9_c2_lnLs.csv",sep=',')
+
+    lrs_p0_0.25_w0_0.25_32_taxa_m2a <- sort(2*(p0_0.25_w0_0.25_32_taxa_m2a_lnl-p0_0.25_w0_0.25_32_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.25_32_taxa_c2 <- sort(2*(p0_0.25_w0_0.25_32_taxa_c2_lnl-p0_0.25_w0_0.25_32_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.5_32_taxa_m2a <- sort(2*(p0_0.25_w0_0.5_32_taxa_m2a_lnl-p0_0.25_w0_0.5_32_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.5_32_taxa_c2 <- sort(2*(p0_0.25_w0_0.5_32_taxa_c2_lnl-p0_0.25_w0_0.5_32_taxa_m1a_lnl))
+
+    lrs_p0_0.5_w0_0.25_32_taxa_m2a <- sort(2*(p0_0.5_w0_0.25_32_taxa_m2a_lnl-p0_0.5_w0_0.25_32_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.25_32_taxa_c2 <- sort(2*(p0_0.5_w0_0.25_32_taxa_c2_lnl-p0_0.5_w0_0.25_32_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.5_32_taxa_m2a <- sort(2*(p0_0.5_w0_0.5_32_taxa_m2a_lnl-p0_0.5_w0_0.5_32_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.5_32_taxa_c2 <- sort(2*(p0_0.5_w0_0.5_32_taxa_c2_lnl-p0_0.5_w0_0.5_32_taxa_m1a_lnl))
+
+    lrs_p0_0.75_w0_0.25_32_taxa_m2a <- sort(2*(p0_0.75_w0_0.25_32_taxa_m2a_lnl-p0_0.75_w0_0.25_32_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.25_32_taxa_c2 <- sort(2*(p0_0.75_w0_0.25_32_taxa_c2_lnl-p0_0.75_w0_0.25_32_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.5_32_taxa_m2a <- sort(2*(p0_0.75_w0_0.5_32_taxa_m2a_lnl-p0_0.75_w0_0.5_32_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.5_32_taxa_c2 <- sort(2*(p0_0.75_w0_0.5_32_taxa_c2_lnl-p0_0.75_w0_0.5_32_taxa_m1a_lnl))
+
+    N <- length(p0_0.25_w0_0.25_32_taxa_m1a_lnl)
+    x <- seq(0,6.3,length.out=N)
+
+    lrs <- c(x,lrs_p0_0.25_w0_0.25_32_taxa_m2a,lrs_p0_0.25_w0_0.25_32_taxa_c2,
+             x,lrs_p0_0.25_w0_0.5_32_taxa_m2a,lrs_p0_0.25_w0_0.5_32_taxa_c2,
+             x,lrs_p0_0.5_w0_0.25_32_taxa_m2a,lrs_p0_0.5_w0_0.25_32_taxa_c2,
+             x,lrs_p0_0.5_w0_0.5_32_taxa_m2a,lrs_p0_0.5_w0_0.5_32_taxa_c2,
+             x,lrs_p0_0.75_w0_0.25_32_taxa_m2a,lrs_p0_0.75_w0_0.25_32_taxa_c2,
+             x,lrs_p0_0.75_w0_0.5_32_taxa_m2a,lrs_p0_0.75_w0_0.5_32_taxa_c2)
+
+    prob.t <- 1/2+pchisq(x,1)/2
+    cprob <- rep(c(prob.t,rep(1:N/N,2)),6)
+
+    cdf.data <- data.frame(lrs,cprob,
+                           weight=rep(c(0.25,0.5,0.75),each=6*N),
+                           omega=rep(c(0.25,0.5),each=3*N,times=3),
+                           model=rep(c('Theory','M2a (C=0)','M2a (C=2)'),each=N,times=6))
+
+    cdf.plot <- ggplot(cdf.data,aes(lrs,cprob)) +
+        coord_cartesian(xlim=c(0,6), ylim=c(0.5,1)) +
+        labs(x="LRS",y=expression("P(X"<="x)")) +
+        geom_line(aes(linetype=model),size=.5) +
+        scale_linetype_manual(values=c("dashed","dotted","solid"),labels=c('M2a (C=0)','M2a (C=2)',expression(chi[0]^2/2 + chi[1]^2/2))) +
+        scale_y_continuous(breaks=scales::pretty_breaks(n=3)) +
+        facet_grid(weight~omega,labeller=label_bquote(cols=omega[0]*'='*.(omega),rows=p[0]*'='*.(weight)))
+
+    cdf.plot +
+        theme(panel.spacing=unit(0,"lines"),
+              panel.background=element_blank(),
+              strip.background=element_blank(),
+              legend.title=element_blank(),
+              legend.text.align=0,
+              legend.key=element_rect(fill="transparent"),
+              legend.position=c(.84,.8),
+              legend.key.width=unit(2.8,"line"),
+              axis.line=element_line(colour="black"),
+              text=element_text(size=16),
+              panel.border = element_rect(colour = "black", fill=NA, size=1))
+@
+  \caption[]{CDFs of LR (C=0) and modified LR (C=2) statistics under M1a/M2a nested model pairs for six simulation settings.  For each simulation setting, 10,000 sequence alignments were generated with two site classes, $\omega<1$ and $\omega=1$ using a balanced, 32-taxon tree topology with branch lengths summing to 9.  The value of $\omega_0$ and its weight, $p_0$, used to generate the data are shown as column and row labels.  CDFs for $\chi^2_0/2 + \chi^2_1/2$ are also included.}
+  \label{fig:CDF32taxaTL9}
+\end{figure}
+\begin{figure}
+    \centering
+    <<CDF5taxaTL3,echo=F,warning=F>>=
+    p0_0.25_w0_0.25_5_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.25_w0_0.25_m1a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.25_5_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.25_w0_0.25_m2a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.25_5_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.25_w0_0.25_c2_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_5_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.25_w0_0.5_m1a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_5_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.25_w0_0.5_m2a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_5_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.25_w0_0.5_c2_lnLs.csv",sep=',')
+
+    p0_0.5_w0_0.25_5_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.5_w0_0.25_m1a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.25_5_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.5_w0_0.25_m2a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.25_5_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.5_w0_0.25_c2_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_5_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.5_w0_0.5_m1a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_5_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.5_w0_0.5_m2a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_5_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.5_w0_0.5_c2_lnLs.csv",sep=',')
+
+    p0_0.75_w0_0.25_5_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.75_w0_0.25_m1a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.25_5_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.75_w0_0.25_m2a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.25_5_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.75_w0_0.25_c2_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_5_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.75_w0_0.5_m1a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_5_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.75_w0_0.5_m2a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_5_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.75_w0_0.5_c2_lnLs.csv",sep=',')
+
+    lrs_p0_0.25_w0_0.25_5_taxa_m2a <- sort(2*(p0_0.25_w0_0.25_5_taxa_m2a_lnl-p0_0.25_w0_0.25_5_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.25_5_taxa_c2 <- sort(2*(p0_0.25_w0_0.25_5_taxa_c2_lnl-p0_0.25_w0_0.25_5_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.5_5_taxa_m2a <- sort(2*(p0_0.25_w0_0.5_5_taxa_m2a_lnl-p0_0.25_w0_0.5_5_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.5_5_taxa_c2 <- sort(2*(p0_0.25_w0_0.5_5_taxa_c2_lnl-p0_0.25_w0_0.5_5_taxa_m1a_lnl))
+
+    lrs_p0_0.5_w0_0.25_5_taxa_m2a <- sort(2*(p0_0.5_w0_0.25_5_taxa_m2a_lnl-p0_0.5_w0_0.25_5_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.25_5_taxa_c2 <- sort(2*(p0_0.5_w0_0.25_5_taxa_c2_lnl-p0_0.5_w0_0.25_5_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.5_5_taxa_m2a <- sort(2*(p0_0.5_w0_0.5_5_taxa_m2a_lnl-p0_0.5_w0_0.5_5_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.5_5_taxa_c2 <- sort(2*(p0_0.5_w0_0.5_5_taxa_c2_lnl-p0_0.5_w0_0.5_5_taxa_m1a_lnl))
+
+    lrs_p0_0.75_w0_0.25_5_taxa_m2a <- sort(2*(p0_0.75_w0_0.25_5_taxa_m2a_lnl-p0_0.75_w0_0.25_5_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.25_5_taxa_c2 <- sort(2*(p0_0.75_w0_0.25_5_taxa_c2_lnl-p0_0.75_w0_0.25_5_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.5_5_taxa_m2a <- sort(2*(p0_0.75_w0_0.5_5_taxa_m2a_lnl-p0_0.75_w0_0.5_5_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.5_5_taxa_c2 <- sort(2*(p0_0.75_w0_0.5_5_taxa_c2_lnl-p0_0.75_w0_0.5_5_taxa_m1a_lnl))
+
+    N <- length(p0_0.25_w0_0.25_5_taxa_m1a_lnl)
+    x <- seq(0,6.3,length.out=N)
+
+    lrs <- c(x,lrs_p0_0.25_w0_0.25_5_taxa_m2a,lrs_p0_0.25_w0_0.25_5_taxa_c2,
+             x,lrs_p0_0.25_w0_0.5_5_taxa_m2a,lrs_p0_0.25_w0_0.5_5_taxa_c2,
+             x,lrs_p0_0.5_w0_0.25_5_taxa_m2a,lrs_p0_0.5_w0_0.25_5_taxa_c2,
+             x,lrs_p0_0.5_w0_0.5_5_taxa_m2a,lrs_p0_0.5_w0_0.5_5_taxa_c2,
+             x,lrs_p0_0.75_w0_0.25_5_taxa_m2a,lrs_p0_0.75_w0_0.25_5_taxa_c2,
+             x,lrs_p0_0.75_w0_0.5_5_taxa_m2a,lrs_p0_0.75_w0_0.5_5_taxa_c2)
+
+    prob.t <- 1/2+pchisq(x,1)/2
+    cprob <- rep(c(prob.t,rep(1:N/N,2)),6)
+
+    cdf.data <- data.frame(lrs,cprob,
+                           weight=rep(c(0.25,0.5,0.75),each=6*N),
+                           omega=rep(c(0.25,0.5),each=3*N,times=3),
+                           model=rep(c('Theory','M2a (C=0)','M2a (C=2)'),each=N,times=6))
+
+    cdf.plot <- ggplot(cdf.data,aes(lrs,cprob)) +
+        coord_cartesian(xlim=c(0,6), ylim=c(0.5,1)) +
+        labs(x="LRS",y=expression("P(X"<="x)")) +
+        geom_line(aes(linetype=model),size=.5) +
+        scale_linetype_manual(values=c("dashed","dotted","solid"),labels=c('M2a (C=0)','M2a (C=2)',expression(chi[0]^2/2 + chi[1]^2/2))) +
+        scale_y_continuous(breaks=scales::pretty_breaks(n=3)) +
+        facet_grid(weight~omega,labeller=label_bquote(cols=omega[0]*'='*.(omega),rows=p[0]*'='*.(weight)))
+
+    cdf.plot +
+        theme(panel.spacing=unit(0,"lines"),
+              panel.background=element_blank(),
+              strip.background=element_blank(),
+              legend.title=element_blank(),
+              legend.text.align=0,
+              legend.key=element_rect(fill="transparent"),
+              legend.position=c(.84,.84),
+              legend.key.width=unit(2.8,"line"),
+              axis.line=element_line(colour="black"),
+              text=element_text(size=16),
+              panel.border = element_rect(colour = "black", fill=NA, size=1))
+@
+  \caption[]{CDFs of LR (C=0) and modified LR (C=2) statistics under M1a/M2a nested model pairs for six simulation settings.  For each simulation setting, 10,000 sequence alignments were generated with two site classes, $\omega<1$ and $\omega=1$ using a 5-taxon tree topology with branch lengths summing to 3.  The value of $\omega_0$ and its weight, $p_0$, used to generate the data are shown as column and row labels.  CDFs for $\chi^2_0/2 + \chi^2_1/2$ are also included.}
+  \label{fig:CDF5taxaTL3}
+\end{figure}
+
+\subsection{False positive rates are too large without modified LR tests}
+The false positive rates for each of the LR tests of positive selection under nested models M1a/M2a with and without likelihood modification are shown in Table \ref{tab:FPRates}.  The threshold used to reject each LR test was determined from the $95$th percentile of the $\chi_0^2/2 + \chi_1^2/2$ distribution.  Thus, when the $\chi_0^2/2 + \chi_1^2/2$ does well to approximate the LR statistic distribution, the expected false positive rate is $0.05$.  For each simulation setting under the null hypothesis, the rates were closer to the expected value using the modified likelihood than with the unmodified likelihood.  Excluding the simulation scenario with $5$ taxa and $(p_0,\omega_0)=(0.25,0.5)$ where parameters are almost unidentifiable (discussed below), the false positive rates were between $0.06$ and $0.1$ (average $0.09$) without likelihood modification and between $0.05$ and $0.07$ (average $0.06$) with likelihood modification.  While the false positive rate of the modified LR statistic was usually close to $0.05$, there is a small sample bias using sequences of length 500.  Analyzing datasets simulated under the same settings, but with sequences $1500$ codons long confirms this bias.  All but one of the false positive rates that were $0.06$ with sequences 500 codons long dropped to $0.05$ with sequences $1500$ codons long and the false positive rate for the simulation setting with $(p_0,\omega_0)=(0.25,0.5)$ dropped to $0.06$ with the longer sequences.
+\begin{sidewaystable}
+  \begin{threeparttable}
+    \caption{False positive rates.}
+    \centering
+    \begin{tabular}[h!]{*{2}l*{18}c}
+      \toprule
+      &  & \multicolumn{18}{c}{Tree Length 3} \\
+      \cmidrule(lr){3-20}
+      &  & \multicolumn{6}{c}{5 taxa} & \multicolumn{6}{c}{10 taxa} & \multicolumn{6}{c}{32 taxa} \\
+      \cmidrule(lr){3-8} \cmidrule(lr){9-14} \cmidrule(lr){15-20}
+      &  & \multicolumn{3}{c}{$\omega_0=.25$} & \multicolumn{3}{c}{$\omega_0=.5$} & \multicolumn{3}{c}{$\omega_0=.25$} & \multicolumn{3}{c}{$\omega_0=.5$} & \multicolumn{3}{c}{$\omega_0=.25$} & \multicolumn{3}{c}{$\omega_0=.5$} \\
+      \cmidrule(lr){3-5} \cmidrule(lr){6-8} \cmidrule(lr){9-11} \cmidrule(lr){12-14} \cmidrule(lr){15-17} \cmidrule(lr){18-20}
+      Model                & $p_0=$ & $.25$ & $.5$ & $.75$ & $.25$ & $.5$ & $.75$ & $.25$ & $.5$ & $.75$ & $.25$ & $.5$ & $.75$ & $.25$ & $.5$ & $.75$ & $.25$ & $.5$ & $.75$ \\
+      \cmidrule(lr){1-1} \cmidrule(lr){3-3} \cmidrule(lr){4-4} \cmidrule(lr){5-5} \cmidrule(lr){6-6} \cmidrule(lr){7-7} \cmidrule(lr){8-8} \cmidrule(lr){9-9} \cmidrule(lr){10-10} \cmidrule(lr){11-11} \cmidrule(lr){12-12} \cmidrule(lr){13-13} \cmidrule(lr){14-14} \cmidrule(lr){15-15} \cmidrule(lr){16-16} \cmidrule(lr){17-17} \cmidrule(lr){18-18} \cmidrule(lr){19-19} \cmidrule(lr){20-20}
+      M2a (C=0)          &        & .10   & .09  & .09   & .10   & .08  & .07   & .09   & .09  & .08   & .09   & .08  & .06   & .09   & .08  & .08   & .08   & .08  & .07 \\
+      M2a (C=2)          &        & .06   & .06  & .05   & .08   & .06  & .06   & .06   & .06  & .05   & .07   & .06  & .05   & .06   & .06  & .05   & .07   & .06  & .06 \\
+      \rule{0pt}{4ex}
+      &  & \multicolumn{18}{c}{Tree Length 6} \\
+      \cmidrule(lr){3-20}
+      &  & \multicolumn{6}{c}{5 taxa} & \multicolumn{6}{c}{10 taxa} & \multicolumn{6}{c}{32 taxa} \\
+      \cmidrule(lr){3-8} \cmidrule(lr){9-14} \cmidrule(lr){15-20}
+      &  & \multicolumn{3}{c}{$\omega_0=.25$} & \multicolumn{3}{c}{$\omega_0=.5$} & \multicolumn{3}{c}{$\omega_0=.25$} & \multicolumn{3}{c}{$\omega_0=.5$} & \multicolumn{3}{c}{$\omega_0=.25$} & \multicolumn{3}{c}{$\omega_0=.5$} \\
+      \cmidrule(lr){3-5} \cmidrule(lr){6-8} \cmidrule(lr){9-11} \cmidrule(lr){12-14} \cmidrule(lr){15-17} \cmidrule(lr){18-20}
+                         & $p_0=$ & $.25$ & $.5$ & $.75$ & $.25$ & $.5$ & $.75$ & $.25$ & $.5$ & $.75$ & $.25$ & $.5$ & $.75$ & $.25$ & $.5$ & $.75$ & $.25$ & $.5$ & $.75$ \\
+      \cmidrule(lr){3-3} \cmidrule(lr){4-4} \cmidrule(lr){5-5} \cmidrule(lr){6-6} \cmidrule(lr){7-7} \cmidrule(lr){8-8} \cmidrule(lr){9-9} \cmidrule(lr){10-10} \cmidrule(lr){11-11} \cmidrule(lr){12-12} \cmidrule(lr){13-13} \cmidrule(lr){14-14} \cmidrule(lr){15-15} \cmidrule(lr){16-16} \cmidrule(lr){17-17} \cmidrule(lr){18-18} \cmidrule(lr){19-19} \cmidrule(lr){20-20}
+      M2a (C=0)          &        & .10   & .09  & .08   & .10   & .09  & .08   & .10   & .09  & .08   & .10   & .08  & .07   & .09   & .10  & .09   & .09   & .09  & .07 \\
+      M2a (C=2)          &        & .06   & .06  & .05   & .08   & .06  & .07   & .06   & .05  & .05   & .07   & .06  & .05   & .05   & .06  & .06   & .07   & .07  & .05 \\
+      \rule{0pt}{4ex}
+      &  & \multicolumn{18}{c}{Tree Length 9} \\
+      \cmidrule(lr){3-20}
+      &  & \multicolumn{6}{c}{5 taxa} & \multicolumn{6}{c}{10 taxa} & \multicolumn{6}{c}{32 taxa} \\
+      \cmidrule(lr){3-8} \cmidrule(lr){9-14} \cmidrule(lr){15-20}
+      &  & \multicolumn{3}{c}{$\omega_0=.25$} & \multicolumn{3}{c}{$\omega_0=.5$} & \multicolumn{3}{c}{$\omega_0=.25$} & \multicolumn{3}{c}{$\omega_0=.5$} & \multicolumn{3}{c}{$\omega_0=.25$} & \multicolumn{3}{c}{$\omega_0=.5$} \\
+      \cmidrule(lr){3-5} \cmidrule(lr){6-8} \cmidrule(lr){9-11} \cmidrule(lr){12-14} \cmidrule(lr){15-17} \cmidrule(lr){18-20}
+                         & $p_0=$ & $.25$ & $.5$ & $.75$ & $.25$ & $.5$ & $.75$ & $.25$ & $.5$ & $.75$ & $.25$ & $.5$ & $.75$ & $.25$ & $.5$ & $.75$ & $.25$ & $.5$ & $.75$ \\
+      \cmidrule(lr){3-3} \cmidrule(lr){4-4} \cmidrule(lr){5-5} \cmidrule(lr){6-6} \cmidrule(lr){7-7} \cmidrule(lr){8-8} \cmidrule(lr){9-9} \cmidrule(lr){10-10} \cmidrule(lr){11-11} \cmidrule(lr){12-12} \cmidrule(lr){13-13} \cmidrule(lr){14-14} \cmidrule(lr){15-15} \cmidrule(lr){16-16} \cmidrule(lr){17-17} \cmidrule(lr){18-18} \cmidrule(lr){19-19} \cmidrule(lr){20-20}
+      M2a (C=0)          &        & .10   & .09  & .08   & .10   & .09  & .07   & .09   & .09  & .08   & .10   & .08  & .06   & .09   & .09  & .08   & .09   & .09  & .08 \\
+      M2a (C=2)          &        & .07   & .05  & .06   & .08   & .07  & .06   & .06   & .06  & .05   & .06   & .06  & .05   & .05   & .05  & .05   & .06   & .06  & .06 \\
+      \bottomrule
+    \end{tabular}
+    \label{tab:FPRates}
+    \begin{tablenotes}
+      \small
+    \item  False positive rates for LR tests of positive selection under nested models M1a/M2a with and without likelihood modification.  For each of six simulations scenarios with varying weights and values for two site classes, $\omega<1$ and $\omega=1$, 10,000 sequence alignments $500$ codons long were generated using 5-, 10-, and 32-taxon tree topologies with branch lengths summing to 3, 6, or 9.  The value of $\omega_0$ and its weight, $p_0$, used to generate the data are shown in column and row labels.  Modified likelihood tuning parameters of $C=0$ (no likelihood modification) and $C=2$ were used.  The LR statistics were compared to the $95$th percentile of the $\chi_0^2/2 + \chi_1^2/2$ distribution.
+    \end{tablenotes}
+  \end{threeparttable}
+\end{sidewaystable}
+
+\subsection{Power of the modified LR tests is comparable to re-calibrated LR tests}
+Likelihood ratio tests are generally expected to have power that is in some sense optimal \citep[cf Section 5.4.4 of ][]{bickel2015mathematical}.  By modifying the likelihood ratios, it is possible that some loss of power will accrue.  Figure \ref{fig:powerTl3} shows the power curves, using a threshold calibrated to have Type I error rate $0.05$, with and without likelihood modification.  The plots suggest that likelihood modification has minimal impact on power.
+\begin{figure}
+  \centering
+<<powerPlots,echo=FALSE>>=
+lnLs.5taxa.tl3 <- read.csv("~/scm/modl.git/sim/alt/5_taxa_balanced_tree/data/lnLs.csv")
+lnLs.10taxa.tl3 <- read.csv("~/scm/modl.git/sim/alt/10_taxa_balanced_tree/data/lnLs.csv")
+lnLs.32taxa.tl3 <- read.csv("~/scm/modl.git/sim/alt/32_taxa_balanced_tree/data/lnLs.csv")
+
+power.df <- data.frame(power=0,tl=rep(c(3,6,9),each=90),
+                       ntaxa=rep(c(5,10,32),each=30,times=3),
+                       p2=rep(c(0.02,0.06,0.1),each=10,times=9),
+                       w2=rep(c(1.05,1.2,1.5,3,5),each=2),
+                       model=rep(c('M2a (C=0)','M2a (C=2)'),times=135))
+
+i <- 1
+## num taxa == 5
+for (p2 in c('0.02','0.06','0.1')) {
+    for (w2 in c('1.05','1.2','1.5','3','5')) {
+        for (mod in c('m2a','c2')) {
+            lrs <- 2*(lnLs.5taxa.tl3[,paste('p2_',p2,'_w2_',w2,'_',mod,sep='')] - lnLs.5taxa.tl3[,paste('p2_',p2,'_w2_',w2,'_m1a',sep='')])
+            lrs.cal <- 2*(lnLs.5taxa.tl3[,paste('p2_0_',mod,sep='')] - lnLs.5taxa.tl3[,'p2_0_m1a'])
+            power <- length(lrs[lrs >= sort(lrs.cal)[9500]])/10000
+            power.df[i,1] <- power
+            i <- i+1
+        }
+    }
+}
+
+## num taxa == 10
+for (p2 in c('0.02','0.06','0.1')) {
+    for (w2 in c('1.05','1.2','1.5','3','5')) {
+        for (mod in c('m2a','c2')) {
+            lrs <- 2*(lnLs.10taxa.tl3[,paste('p2_',p2,'_w2_',w2,'_',mod,sep='')] - lnLs.10taxa.tl3[,paste('p2_',p2,'_w2_',w2,'_m1a',sep='')])
+            lrs <- lrs[!is.na(lrs)]
+            lrs.null <- 2*(lnLs.10taxa.tl3[,paste('p2_0_',mod,sep='')] - lnLs.10taxa.tl3[,'p2_0_m1a'])
+            th <- sort(lrs.null)[9500]
+            power <- length(lrs[lrs >= th])/length(lrs)
+            power.df[i,1] <- power
+            i <- i+1
+        }
+    }
+}
+
+## num taxa == 32
+for (p2 in c('0.02','0.06','0.1')) {
+    for (w2 in c('1.05','1.2','1.5','3','5')) {
+        for (mod in c('m2a','c2')) {
+            lrs <- 2*(lnLs.32taxa.tl3[,paste('p2_',p2,'_w2_',w2,'_',mod,sep='')] - lnLs.32taxa.tl3[,paste('p2_',p2,'_w2_',w2,'_m1a',sep='')])
+            lrs <- lrs[!is.na(lrs)]
+            lrs.null <- 2*(lnLs.32taxa.tl3[,paste('p2_0_',mod,sep='')] - lnLs.32taxa.tl3[,'p2_0_m1a'])
+            th <- sort(lrs.null)[950]
+            power <- length(lrs[lrs >= th])/length(lrs)
+            power.df[i,1] <- power
+            i <- i+1
+        }
+    }
+}
+
+power.tl3.data <- subset(power.df, tl==3)
+
+power.tl3.plot <- ggplot(power.tl3.data,aes(w2,power)) +
+    #ggtitle("Tree Length 3") +
+    coord_cartesian(xlim=c(1,5), ylim=c(0,1)) +
+    labs(x=expression(omega[2]),y="Power") +
+    geom_point(aes(group=model,shape=model),size=2) +
+    geom_line(aes(linetype=model),size=.4) +
+    scale_linetype_manual(values=c("dotted","solid"),labels=c('M2a (C=0)','M2a (C=2)')) +
+    ##scale_y_continuous(breaks=scales::pretty_breaks(n=3)) +
+    scale_x_continuous(trans='log2',breaks=scales::pretty_breaks(n=5)) +
+    ##scale_y_continuous(breaks=c(scales::pretty_breaks(n=5)),trans='log2') +
+    ##scale_x_log10() +
+    facet_grid(p2~ntaxa,labeller=label_bquote(rows=p[2]*'='*.(p2),cols=.(ntaxa)*' Taxa'))
+
+power.tl3.plot +
+    theme(panel.spacing=unit(0,"lines"),
+          panel.background=element_blank(),
+          strip.background=element_blank(),
+          plot.title = element_text(hjust = 0.5),
+          legend.title=element_blank(),
+          legend.text.align=0,
+          legend.key=element_rect(fill="transparent"),
+          legend.position=c(0.9,.728),
+          legend.key.width=unit(1.3,"line"),
+          axis.line=element_line(colour="black"),
+          text=element_text(size=14),
+          panel.border = element_rect(colour = "black", fill=NA, size=1))
+@
+  \caption[]{Comparison of power under model M2a without (C=0) and with (C=2) likelihood modification.  For each simulation setting, 10,000 (5 and 10 taxa) or 1,000 (32 taxa) alignments were generated with 500 codons and $45\%$ weight on $\omega=0.5$, $p_2$ weight on $\omega_2$ and the remaining weight on $\omega=1$.}
+  \label{fig:powerTl3}
+\end{figure}
+
+\subsection{Modified likelihood improves estimation for difficult real data settings}
+We analyzed the same $16$ genes described and analyzed in \cite{mingronesba} and the results are summarized in Table \ref{tab:realDataResultsOverview}.  For each of the genes \cite{mingronesba} described as \textit{regular} cases with ML estimation showing no evidence of instabilities and bootstrap parameter distributions having low variance (lysin, \textit{nuoL3}, \textit{pol}, \textit{RafL}, \textit{TrbL-VirB6\_3}, and \textit{vif}), the LR statistics, $\hat{p}_2$, and $\hat{\omega}_2$ are comparable with and without likelihood modification.  On the other hand, for $4$ of the $5$ genes for which the $\omega$ distribution had been poorly estimated in \cite{mingronesba} (\textit{CDH3}, \textit{mivN}, \textit{pgpA}, \textit{tax}, and \textit{TrbL-VirB6\_2}), the results are very different with and without likelihood modification.  Without likelihood modification, an estimated $\hat{p}_2=0.006$ of the sites in \textit{pgpA} were estimated to have evolved under $\hat{\omega}_2=34.7$ and the LR test was rejected.  With likelihood modification, $(p_2,\omega_2)$ was estimated to be $(0.09,1.00)$, the likelihoods under both the null and alternative models are the same, and the LR test was not rejected.  With the exception of \textit{tax}, the estimates of $p_2$ were always larger using modified likelihoods and the corresponding estimates of $w_2$ were always smaller with average decreases in the estimated $\omega_2$ equal to $16.85$, $2.22$, and $0.29$ for the genes described in \cite{mingronesba} as \textit{irregular} (excluding \textit{tax}), \textit{uncategorized}, and \textit{regular}, respectively.  Differences in the branch length and $\kappa$ estimates were minor in all cases.  The only \textit{irregular} gene with estimates that did not vary between the two likelihood approaches was the well-known \textit{tax} gene \citep{suzuki2004false,yang2005bayes}.  Its highly unusual site-pattern distribution gives extreme MLEs with $100\%$ weight ($\hat{p}_2=1$) placed on $\omega>1$.  Because the modified likelihood penalizes against small weight on $\omega>1$, it is not surprising that likelihood modification has no impact on likelihood estimation for the \textit{tax} gene.
+\begin{threeparttable}
+  \caption{Genes analyzed under models M1a and M2a without (C=0) and with (C=2) likelihood modification.}
+  \centering
+  \begin{tabular}[]{*{9}l}
+    \toprule
+    & & & \multicolumn{2}{c}{p-value} & \multicolumn{2}{c}{Tree Length} & \multicolumn{2}{c}{$\hat{p}_2$/$\hat{\omega}_2$} \\
+    \cmidrule(lr){4-5} \cmidrule(lr){6-7} \cmidrule(lr){8-9}
+    \multicolumn{1}{c}{Gene} & \multicolumn{1}{c}{$N_t$} & \multicolumn{1}{c}{$N_c$} & \multicolumn{1}{c}{C=0} & \multicolumn{1}{c}{C=2} & \multicolumn{1}{c}{C=0} & \multicolumn{1}{c}{C=2} & \multicolumn{1}{c}{C=0} & \multicolumn{1}{c}{C=2} \\
+    \cmidrule(lr){1-1} \cmidrule(lr){2-2} \cmidrule(lr){3-3} \cmidrule(lr){4-4} \cmidrule(lr){5-5} \cmidrule(lr){6-6} \cmidrule(lr){7-7} \cmidrule(lr){8-8} \cmidrule(lr){9-9}
+    \textit{CDH3}          & 11    & 176  & 1.40e-04 & 8.39e-03 & 0.56 & 0.54 & 0.00/24.57 & 0.08/2.01 \\
+    \textit{mivN}          & 5     & 504  & 1.54e-01 & 5.00e-01 & 1.62 & 1.60 & 0.00/5.95  & 0.07/1.00 \\
+    \textit{pgpA}          & 5     & 198  & 2.33e-02 & 5.00e-01 & 2.93 & 2.06 & 0.01/34.70 & 0.09/1.00 \\
+    \textit{TrbL-VirB6\_2} & 5     & 657  & 4.03e-01 & 5.00e-01 & 2.12 & 2.11 & 0.00/6.17  & 0.11/1.00 \\
+    \hline
+    lysin                  & 25    & 134  & 0.00e+00 & 0.00e+00 & 8.81 & 8.92 & 0.26/3.25  & 0.27/3.24 \\
+    \textit{nuoL3}         & 5     & 499  & 8.26e-14 & 9.63e-14 & 4.58 & 4.75 & 0.04/12.53 & 0.04/12.03\\
+    \textit{pol}           & 23    & 947  & 4.33e-15 & 5.61e-15 & 1.31 & 1.32 & 0.02/5.59  & 0.02/5.14 \\
+    \textit{RfaL}          & 5     & 403  & 6.20e-06 & 7.89e-06 & 3.46 & 3.50 & 0.07/4.34  & 0.08/3.94 \\
+    \textit{TrbL-VirB6\_3} & 5     & 938  & 2.05e-09 & 2.36e-09 & 3.06 & 3.12 & 0.03/5.99  & 0.04/5.76 \\
+    \textit{vif}           & 29    & 192  & 2.86e-13 & 3.47e-13 & 2.90 & 2.95 & 0.08/3.56  & 0.10/3.43 \\
+    \hline
+    $\beta$-globin         & 17    & 144  & 3.69e-03 & 5.84e-03 & 8.40 & 8.62 & 0.03/2.94  & 0.05/2.72 \\
+    \textit{ccmF}          & 5     & 635  & 2.54e-05 & 4.40e-05 & 3.41 & 3.28 & 0.01/15.47 & 0.03/8.41 \\
+    \textit{ENAM}          & 11    & 1142 & 7.66e-04 & 9.73e-04 & 0.46 & 0.46 & 0.02/5.69  & 0.08/3.41 \\
+    \textit{env}           & 13    & 91   & 2.59e-05 & 1.33e-04 & 2.04 & 2.03 & 0.18/3.63  & 0.33/2.79 \\
+    \textit{perM}          & 5     & 351  & 1.71e-01 & 2.16e-01 & 1.78 & 1.77 & 0.02/2.57  & 0.04/1.89 \\
+    \textit{tax}           & 20    & 181  & 4.17e-03 & 4.17e-03 & 0.13 & 0.13 & 1.00/4.87  & 1.00/4.87 \\
+    \bottomrule
+  \end{tabular}
+  \label{tab:realDataResultsOverview}
+  \begin{tablenotes}
+    \small
+  \item $N_t$: number of taxa; $N_c$: sequence length in number of codons; p-value of the likelihood ratio test for the presence of positive selection using a $\chi^2_0/2 + \chi^2_1/2$ distribution; estimated total tree length; estimated proportion of sites evolving under $\omega>1$: $\hat{p}_2$/$\hat{\omega}_2$.   The top genes represent \textit{irregular} estimation, the middle \textit{regular}, and the bottom genes are uncategorized.
+  \end{tablenotes}
+\end{threeparttable}
+
+\subsection{Real data results show that using modified likelihood improves estimation and detection of sites under positive selection}
+Although site classification was not the focus in this study, we checked for evidence of positive selection at individual sites to assess differences using the two likelihood approaches and three site classifiers.  Spearman correlations for the site posteriors are summarized in Table \ref{tab:sitecors} for Naive empirical Bayes (NEB), Bayes empirical Bayes (BEB) \citep{yang2005bayes} and SBA, the smoothed bootstrap method from \cite{mingronesba}, each with and without likelihood modification.  Site classification was nearly identical using BEB with both likelihood approaches.  This is to be expected since BEB integrates over the uncertainties in the estimates of the $\omega$ distribution using discretized uniform and Dirichlet priors.  Thus, the only parameters under BEB that differ with or without modified ML estimation are the edge-lengths and some parameters in the rate matrix, which tended to change much less than the parameters of the mixing distribution.  By contrast, NEB directly uses the ML estimates of the mixing distribution, which differ considerably with and without likelihood modification.  Consequently, site classification differs substantially under NEB with and without the modified likelihood.  Given that previous studies have indicated that BEB and SBA do better than NEB at balancing accuracy and power for identifying sites under positive selection \citep[e.g., ][]{anisimova2002accuracy, mingronesba}, the stronger agreement between BEB and SBA with NEB using modified likelihood than NEB without modified likelihood suggests modified likelihood is beneficial for detecting sites under positive selection.
+\begin{table}
+  \centering
+  \begin{threeparttable}
+    \caption{Spearman rank correlations of site posterior probabilities for different methods of classification under model M2a.}
+    \begin{tabular}[!ht]{*{10}l}
+      \toprule
+      Gene                       & N*/N & N*/B & N*/S & B*/N & B*/B & B*/S & N/B  & N/S  & B/S \\
+      \cmidrule(lr){1-1} \cmidrule(lr){2-2} \cmidrule(lr){3-3} \cmidrule(lr){4-4} \cmidrule(lr){5-5} \cmidrule(lr){6-6} \cmidrule(lr){7-7} \cmidrule(lr){8-8} \cmidrule(lr){9-9} \cmidrule(lr){10-10}
+      \textit{CDH3}              & 0.40 & 1.00 & 1.00 & 0.40 & 1.00 & 1.00 & 0.40 & 0.40 & 1.00 \\
+      \textit{mivN}              & 0.76 & 0.99 & 0.97 & 0.77 & 1.00 & 0.96 & 0.77 & 0.78 & 0.96 \\
+      \textit{pgpA}              & 0.71 & 0.99 & 0.99 & 0.72 & 1.00 & 0.98 & 0.72 & 0.73 & 0.98 \\
+      \textit{TrbL-VirB6\_2}     & 0.72 & 1.00 & 0.98 & 0.72 & 1.00 & 0.98 & 0.72 & 0.72 & 0.98 \\
+      \hline
+      lysin                      & 1.00 & 1.00 & 0.99 & 0.99 & 1.00 & 0.99 & 1.00 & 0.99 & 0.99 \\
+      \textit{nuoL3}             & 1.00 & 0.99 & 0.90 & 0.99 & 1.00 & 0.93 & 0.99 & 0.90 & 0.93 \\
+      \textit{pol}               & 0.94 & 0.96 & 0.79 & 0.91 & 1.00 & 0.85 & 0.91 & 0.76 & 0.85 \\
+      \textit{RfaL}              & 1.00 & 1.00 & 0.97 & 1.00 & 1.00 & 0.97 & 1.00 & 0.96 & 0.97 \\
+      \textit{TrbL-VirB6\_3}     & 0.98 & 0.98 & 0.91 & 1.00 & 1.00 & 0.93 & 1.00 & 0.93 & 0.93 \\
+      \textit{vif}               & 1.00 & 1.00 & 0.97 & 1.00 & 1.00 & 0.98 & 1.00 & 0.97 & 0.98 \\
+      \hline
+      $\beta$-globin             & 0.96 & 0.94 & 0.85 & 0.90 & 1.00 & 0.90 & 0.90 & 0.82 & 0.90 \\
+      \textit{ccmF}              & 0.93 & 0.93 & 0.87 & 0.86 & 1.00 & 0.96 & 0.86 & 0.80 & 0.96 \\
+      \textit{ENAM}              & 1.00 & 1.00 & 1.00 & 1.00 & 1.00 & 1.00 & 1.00 & 1.00 & 1.00 \\
+      \textit{env}               & 0.99 & 1.00 & 0.99 & 1.00 & 1.00 & 0.99 & 1.00 & 0.98 & 0.99 \\
+      \textit{perM}              & 0.99 & 1.00 & 0.92 & 0.99 & 1.00 & 0.93 & 0.99 & 0.91 & 0.93 \\
+      \bottomrule
+    \end{tabular}
+    \label{tab:sitecors}
+    \begin{tablenotes}
+      \small
+    \item  N: NEB; B: BEB; S: SBA; *: parameter estimation with modified likelihood. The top genes represent \textit{irregular} estimation, the middle \textit{regular}, and the bottom genes are uncategorized.
+    \end{tablenotes}
+  \end{threeparttable}
+\end{table}
+
+\subsection{Investigation of a problematic setting}
+Estimation and inference becomes more challenging with smaller evolutionary distances or fewer taxa, but, perhaps surprisingly, we show the true mixing distribution is at least as important for determining whether a setting is challenging.  This is most evident in the CDFs for the null simulation settings using a 5-taxon tree of length $3$ (Fig. \ref{fig:CDF5taxaTL3}).  Note that the mixing distribution for all of these scenarios is determined by $(p_0,\omega_0)$.  Overall, except for the $(p_0,\omega_0)=(0.25,0.5)$ case, the modified LR statistic distribution is still well approximated by a $\chi_0^2/2 + \chi_1^2/2$ distribution, but for this one setting, neither the LR statistic nor the modified LR statistic distribution is well approximated by the $\chi_0^2/2 + \chi_1^2/2$ distribution.
+
+Histograms of the $\omega_0$ estimates under models M1a and M2a with modified likelihood show the largest variation when $(p_0,\omega_0)=(0.25,0.5)$ (Fig. \ref{fig:w0MLEs}).  Of the $10,000$ sets of modified likelihood MLEs, under M2a $2315$ had $90\%$ or more weight on an $\hat{\omega}_0 \ge 0.65$.  Since the true mixing distribution had two well-separated $\omega$ values, $\omega_0=0.5$ and $\omega_1=1$, the expectation was that the estimated distribution would also have well-separated components with appreciable weight.  The theory leading to the $\chi_0^2/2 + \chi_1^2/2$ approximation relies on this being highly likely with sufficiently large sequence lengths.  It is clear from the simulations that sequence lengths of 500 are not long enough to guarantee well-separated components, which lead to the discrepancy for $(p_0,\omega_0)=(0.25,0.5)$ in Figure \ref{fig:CDF5taxaTL3}.  After removing the $2315$ sets of modified MLEs that had $90\%$ or more weight on an $\hat{\omega}_0 \ge 0.65$, the $\chi_0^2/2+\chi_1^2/2$ CDF provides a good approximation to the actual CDF of the modified LR statistic (Fig. \ref{fig:CDFFiltered}).  This indicates the estimates with $\hat p_0 \ge 0.9$ and $\hat{\omega}_0 \ge 0.65$ were the source of anomalously larger than expected LR statistics.
+\begin{figure}
+    \centering
+    <<w0MLEs, echo=F,warning=F>>=
+    p0_0.25_w0_0.25_m2a_mles <- read.csv("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.25_w0_0.25_m2a_mles.csv",header=F)
+    colnames(p0_0.25_w0_0.25_m2a_mles) <- c('k','p0','p1','p2','w0','w1','w2')
+    p0_0.25_w0_0.5_m2a_mles <- read.csv("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.25_w0_0.5_m2a_mles.csv",header=F)
+    colnames(p0_0.25_w0_0.5_m2a_mles) <- c('k','p0','p1','p2','w0','w1','w2')
+    p0_0.5_w0_0.25_m2a_mles <- read.csv("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.5_w0_0.25_m2a_mles.csv",header=F)
+    colnames(p0_0.5_w0_0.25_m2a_mles) <- c('k','p0','p1','p2','w0','w1','w2')
+    p0_0.5_w0_0.5_m2a_mles <- read.csv("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.5_w0_0.5_m2a_mles.csv",header=F)
+    colnames(p0_0.5_w0_0.5_m2a_mles) <- c('k','p0','p1','p2','w0','w1','w2')
+    p0_0.75_w0_0.25_m2a_mles <- read.csv("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.75_w0_0.25_m2a_mles.csv",header=F)
+    colnames(p0_0.75_w0_0.25_m2a_mles) <- c('k','p0','p1','p2','w0','w1','w2')
+    p0_0.75_w0_0.5_m2a_mles <- read.csv("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.75_w0_0.5_m2a_mles.csv",header=F)
+    colnames(p0_0.75_w0_0.5_m2a_mles) <- c('k','p0','p1','p2','w0','w1','w2')
+
+    p0_0.25_w0_0.25_c2_mles <- read.csv("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.25_w0_0.25_c2_mles.csv",header=F)
+    colnames(p0_0.25_w0_0.25_c2_mles) <- c('k','p0','p1','p2','w0','w1','w2')
+    p0_0.25_w0_0.5_c2_mles <- read.csv("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.25_w0_0.5_c2_mles.csv",header=F)
+    colnames(p0_0.25_w0_0.5_c2_mles) <- c('k','p0','p1','p2','w0','w1','w2')
+    p0_0.5_w0_0.25_c2_mles <- read.csv("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.5_w0_0.25_c2_mles.csv",header=F)
+    colnames(p0_0.5_w0_0.25_c2_mles) <- c('k','p0','p1','p2','w0','w1','w2')
+    p0_0.5_w0_0.5_c2_mles <- read.csv("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.5_w0_0.5_c2_mles.csv",header=F)
+    colnames(p0_0.5_w0_0.5_c2_mles) <- c('k','p0','p1','p2','w0','w1','w2')
+    p0_0.75_w0_0.25_c2_mles <- read.csv("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.75_w0_0.25_c2_mles.csv",header=F)
+    colnames(p0_0.75_w0_0.25_c2_mles) <- c('k','p0','p1','p2','w0','w1','w2')
+    p0_0.75_w0_0.5_c2_mles <- read.csv("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.75_w0_0.5_c2_mles.csv",header=F)
+    colnames(p0_0.75_w0_0.5_c2_mles) <- c('k','p0','p1','p2','w0','w1','w2')
+
+    w0 <- c(p0_0.25_w0_0.25_c2_mles$w0,p0_0.25_w0_0.5_c2_mles$w0,
+                  p0_0.5_w0_0.25_c2_mles$w0,p0_0.5_w0_0.5_c2_mles$w0,
+                  p0_0.75_w0_0.25_c2_mles$w0,p0_0.75_w0_0.5_c2_mles$w0)
+
+    N <- nrow(p0_0.25_w0_0.25_m2a_mles)
+
+    mle.data <- data.frame(w0,
+                           weight=rep(c(0.25,0.5,0.75),each=2*N),
+                           omega=rep(c(0.25,0.5),each=N,times=3))
+
+    cdf.plot <- ggplot(mle.data,aes(w0,y=..ncount..)) +
+        geom_histogram(binwidth=.005,fill=I('black')) +
+        labs(x=expression(omega[0]),y='') +
+facet_grid(weight~omega,labeller=label_bquote(cols=omega[0]*'='*.(omega),rows=p[0]*'='*.(weight)))
+
+    cdf.plot +
+        theme(panel.spacing=unit(2,"lines"),
+              panel.background=element_blank(),
+              strip.background=element_blank(),
+              text=element_text(size=16),
+              axis.text.y=element_blank(),
+              axis.ticks.y=element_blank())
+              #panel.border = element_rect(colour = "black", fill=NA, size=0))
+@
+\caption[]{MLEs of the $\omega_0$ parameter under model M2a using a modified likelihood parameter of $C=2$ for six simulation settings.  For each simulation setting, 10,000 sequence alignments were generated with two site classes, $\omega<1$ and $\omega=1$ using a 5-taxon tree topology with branch lengths summing to 3.  The value of $\omega_0$ and its weight, $p_0$, used to simulate the data are shown as column and row labels.}
+  \label{fig:w0MLEs}
+\end{figure}
+\begin{figure}
+    \centering
+    <<CDF5taxaFiltered, echo=F,warning=F>>=
+    p0_0.25_w0_0.5_5_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.25_w0_0.5_m1a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_5_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.25_w0_0.5_c2_lnLs.csv",sep=',')
+
+    p0_0.25_w0_0.5_c2_mles <- read.csv("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.25_w0_0.5_c2_mles.csv",header=F)
+    colnames(p0_0.25_w0_0.5_c2_mles) <- c('k','p0','p1','p2','w0','w1','w2')
+
+    drop <- which(p0_0.25_w0_0.5_c2_mles$p0>0.9)
+
+    p0_0.25_w0_0.5_c2_filtered_mles <- p0_0.25_w0_0.5_c2_mles[-drop,]
+    colnames(p0_0.25_w0_0.5_c2_filtered_mles) <- c('k','p0','p1','p2','w0','w1','w2')
+
+
+    p0_0.25_w0_0.5_5_taxa_m1a_filtered_lnl <- p0_0.25_w0_0.5_5_taxa_m1a_lnl[-drop]
+    p0_0.25_w0_0.5_5_taxa_c2_filtered_lnl <- p0_0.25_w0_0.5_5_taxa_c2_lnl[-drop]
+    lrs_p0_0.25_w0_0.5_5_taxa_c2_filtered <- sort(2*(p0_0.25_w0_0.5_5_taxa_c2_filtered_lnl-p0_0.25_w0_0.5_5_taxa_m1a_filtered_lnl))
+
+    N <- length(p0_0.25_w0_0.5_5_taxa_m1a_filtered_lnl)
+    x <- seq(0,6.3,length.out=N)
+
+    lrs <- c(x,lrs_p0_0.25_w0_0.5_5_taxa_c2_filtered)
+
+    prob.t <- 1/2+pchisq(x,1)/2
+    cprob <- c(prob.t,1:N/N)
+
+    cdf.data <- data.frame(lrs,cprob,model=rep(c('Theory','M2a (C=2) (Filtered)'),each=N))
+
+    cdf.plot <- ggplot(cdf.data,aes(lrs,cprob)) +
+        coord_cartesian(xlim=c(0,6), ylim=c(0.5,1)) +
+        labs(x="Likelihood Ratio Statistic",y=expression("P(X"<="x)")) +
+        geom_line(aes(linetype=model),size=.5) +
+        scale_linetype_manual(values=c("dotted","solid"),labels=c('M2a (C=2)',expression(chi[0]^2/2 + chi[1]^2/2))) +
+        scale_y_continuous(breaks=scales::pretty_breaks(n=3))
+
+    cdf.plot +
+        theme(panel.spacing=unit(0,"lines"),
+              panel.background=element_blank(),
+              strip.background=element_blank(),
+              legend.title=element_blank(),
+              legend.text.align=0,
+              legend.key=element_rect(fill="transparent"),
+              legend.position=c(.80,.7),
+              legend.key.width=unit(2.8,"line"),
+              axis.line=element_line(colour="black"),
+              text=element_text(size=16),
+              panel.border = element_rect(colour = "black", fill=NA, size=1))
+@
+  \caption[]{Cumulative distribution function (CDF) of filtered, modified likelihood ratio (LR) statistics (C=2).  The modified LR statistics were calculated under the nested model pair M1a/M2a for 10,000 simulated sequence alignments.  The alignments were simulated with 25\% of the sites evolving under $\omega=0.5$ and the remaining sites evolving under $\omega=1$ using a 5-taxon tree topology with branch lengths summing to 3.  A modified likelihood tuning parameters of $C=2$ was used and 2315 LR statistics associated with ML estimates with greater than 90\% of the sites estimated in the $\omega<1$ site class were excluded from the plot.  A $\chi^2_0/2+\chi^2_1/2$ CDF is also included.}
+  \label{fig:CDFFiltered}
+\end{figure}
+
+We tested whether a pre-screen would be useful for filtering out datasets with $\hat p_0\ge 0.9$ and $\hat \omega_0\ge 0.65$.  The pre-screen we considered was to ignore datasets failing to reject M1a in an M0 versus M1a test.  While this was effective in that it filtered all the $2315$ datasets described above, it also filtered many other datasets.  Consequently, the distribution of M1a/M2a LR statistics remaining after the pre-screen was not as well approximated by the $\chi_0^2/2+\chi_1^2/2$ CDF as the one with the $2315$ datasets manually filtered (Fig. \ref{fig:CDFPS}).  As a second check, we re-simulated the data under the same settings, but with codon frequencies derived from abolone sperm lysin \citep{yang2000maximum}, however the M1a/M2a LR statistic distribution was, again, not well approximated by a $\chi_0^2/2+\chi_1^2/2$ CDF.
+
+\subsection{Parameters can be almost unidentifiable for codon models}
+To further investigate why $(p_0,\omega_0)=(0.25,0.5)$ was a difficult setting, we approximated Kullback-Leibler (KL) divergences between pattern distributions coming from $(p_0,\omega_0)=(0.25,0.5)$ and pattern distributions from other mixing distributions (Fig. \ref{fig:KLp0.25w0.5}).  When $KL=0$, two mixing distributions give exactly the same pattern probabilities and the mixing distributions are said to be unidentifiable.  When $KL>0$ but small, distinguishing between the two mixing distributions will be difficult.  A number of the KL divergences in Figure \ref{fig:KLp0.25w0.5} are close to $0$, including those for $(p_0,\omega_0)=(0.5,0.75)$ and $(p_0,\omega_0)=(0.75,0.8)$.  To determine whether the $KL$ was indeed $0$, we restricted attention to all site patterns for pairs of taxa to give tractable calculations.  $KL_s$, calculated using site pattern distributions for a subset of the taxa, satisfies $KL_s\le KL$.  Thus, if any pair of taxa gives $KL_s>0$, then the KL for all taxa must be positive.  For $(p_0,\omega_0)=(0.5,0.75)$ this gives $KL>0.00018$, the maximium KL over pairs.
+\begin{figure}
+  \centering
+<<klp0.25w0.5, echo=F>>=
+site.lik.truth <- read.csv("~/scm/modl.git/sim/null/5_taxa_bl_3_10000_codons/data/sim_p0_0.25_w0_0.5/site_lik_truth.csv",header=F)
+colnames(site.lik.truth) <- c('cnt','lik')
+n <- sum(site.lik.truth$cnt)
+cnt <- site.lik.truth$cnt
+y.truth <- site.lik.truth$lik
+y.truth[y.truth==0] <- 1e-12
+kl <- numeric(0)
+vkl <- numeric(0)
+for (p in seq(0,1,.1)) {
+    for (w in seq(0,1,.1)) {
+        site.lik <- read.csv(paste("~/scm/modl.git/sim/null/5_taxa_bl_3_10000_codons/data/sim_p0_0.25_w0_0.5/site_like_p_",p,"_w_",w,".csv",sep=''),header=F)
+        y <- site.lik[,2]
+        y[y==0] <- 1e-12
+        y.bar <- sum(cnt*log(y.truth / y))/n
+        kl <- c(kl,y.bar)
+        vkl <- c(vkl,sum(cnt*(log(y.truth / y) - y.bar)^2)/n)
+    }
+}
+p <- rep(seq(0,1,.1),each=11)
+w <- rep(seq(0,1,.1),times=11)
+lb <- kl - 2*sqrt(vkl/10000)
+ub <- kl + 2*sqrt(vkl/10000)
+kl.data <- data.frame(kl,lb,ub,w,p)
+kl.plot <- ggplot(kl.data,aes(p,kl)) +
+    labs(x=expression("p"[0]),y="Kullback-Leibler Divergence") +
+    geom_point() +
+    geom_hline(yintercept=0) + facet_wrap(~w,ncol=3,labeller=label_bquote(cols=omega[0]*'='*.(w))) +
+    coord_cartesian(ylim = c(-0.001, 0.01)) +
+    geom_errorbar(aes(ymin=lb,ymax=ub))
+
+kl.plot + theme(panel.spacing=unit(0,"lines"),
+                panel.background=element_blank(),
+                strip.background=element_blank(),
+                legend.title=element_blank(),
+                legend.key=element_rect(fill="transparent"),
+                text=element_text(size=12),
+                panel.border = element_rect(colour = "black", fill=NA, size=1))
+
+@
+\caption[]{Approximations of the Kullback-Leibler divergences between the distributions of site likelihoods for the generating model and other mixing distributions.  The approximations were obtained as the mean lnL difference between 10,000 site patterns generated under model M1a using a 5-taxon tree with branch lengths summing to 3 and the mixing distribution $(p_0,\omega_0)=(0.25,0.5)$, and other mixing distributions with varying weights on values of $\omega$ ranging from $0$ to $1$.  Error bars for two standard errors $(s_{KL}/\sqrt{10000})$ above and below each Kullback-Leibler estimate are included.  Points missing from each plot are above the visible range.}
+\label{fig:KLp0.25w0.5}
+\end{figure}
+
+Consideration of KL divergences for mixing distributions $(p_0,\omega_0)=(1,0.75)$ and $(p_0,\omega_0)=(0.5,0.5)$ allows us to show that there are ranges of distributions that are almost unidentifiable.  The maximum KL divergence over pairs of taxa from the $5$-taxon tree was small $(0.00085)$, thus \[p(x;\omega=0.75,\zeta) \approx p(x;\omega=0.5,\zeta)/2 + p(x;\omega=1,\zeta)/2.\]  Multiplying this equation by $p_0^{'}$ and rearranging, one can show \[p(x;\omega=0.75,\zeta)p_0^{'} + p(x;\omega=1,\zeta)(1-p_0^{'})  \approx p(x;\omega=0.5,\zeta)p_0^{'}/2 + p(x;\omega=1,\zeta)/(1-p_0^{'}/2).\]  Thus, mixing distributions $(p_0,\omega_0)=(p_0^{'},0.75)$ give pattern probabilities that difficult to distinguish from $(p_0,\omega_0)=(p_0^{'}/2,0.5)$.  This holds for the range of mixing distributions with $0 \le p_0^{'} \le 1$ (Fig. \ref{fig:KLp0.25w0.5}).
+
+While we have shown that there are regions of mixing-distribution parameter space that can make estimation and inference difficult, our results also show that there are regions where distinguishing between mixing distributions is not difficult, even for the $(p_0^{'},0.75) \approx (p_0^{'}/2,0.5)$ comparison above.  This is because $p_0^{'}/2 \le 0.5$, so pattern probabilities generated from any $(p_0,\omega_0)=(p_0^{'},\omega=0.75)$ can not be consistent with e.g., $(p_0,\omega_0)=(0.75,\omega=0.5)$ (Fig. \ref{fig:KLp0.75w0.5}).  Finally, the good behaviour of the modified LR statistic when used with trees with more taxa and longer branch lengths (e.g., Fig. \ref{fig:CDF32taxaTL9}) suggests these problems are likely restricted to trees with fewer taxa and shorter branch lengths.
+
+\subsection{Concluding Remarks}
+We have described challenging issues with mixture models of codon evolution that result in null distributions of LR statistics that are not tractable when testing for positive selection.  A common violation of the regularity conditions under the widely employed M2a model is for small weight to be placed on $\omega>1$.  This results in LR statistics that, when compared to thresholds predicted by a $\chi^2_0/2 + \chi^2_1/2$ distribution, tend to give inflated false positive rates.  By including a penalty in likelihood calculations for small weight on $\omega>1$, in most cases, LR statistic distributions are well approximated by a $\chi^2_0/2 + \chi^2_1/2$ distribution and false positive rates are adequately controlled.  Simulations under the alternative hypothesis show that modifying the LR statistic has minimal impact on power.
+
+The problematic behaviour of LR statistics discussed here arises more broadly with mixtures and is not usually amenable to solutions like those discussed in \cite{self1987asymptotic}.  For instance, \cite{chernoff1995asymptotic} outline a class of problems using a mixture of binomial distributions to evaluate genetic markers for genes representing heterogeneous traits.  Similar to how any $\omega_2>1$ with a weight of $p_2=0$ gives the null under model M2a, any mixing distribution gives the null when the parameters of the two binomials are estimated to be the same.
+For many of the settings considered, no closed form expression for the distribution was available and, by contrast with usual chi-square distributions, depended on unknown parameters in the true model under the null hypothesis.  Generally, it appears that when dealing with mixtures in molecular evolution settings, simple limiting distributions like those of \cite{self1987asymptotic} are not likely without some modification of the likelihood.
+
+The simulation results expose an additional difficulty.  For certain generating mixing distributions like $(p_0,\omega_0)=(0.25,0.5)$, there are other mixing distributions that can give very similar pattern probabilities when the number of taxa is small and edge lengths are short.  That some models were found to be almost unidentifiable suggests that there may be mixing distributions and trees that lead to a complete lack of identifiability.  There has been some work to explore identifiability of mixture models of molecular evolution \citep[e.g.,][]{allman2008identifiability,allman2009identifiability,chai2011rogers}, but none of these results apply directly to codon models.  Determining the extent to which these types of issues affect codon models of evolution will be a valuable topic for future research.
+
+The utility of mixture models to solve a variety of problems in the field of molecular evolution has been well established \citep[e.g.,][]{gaston2011phylogenetic,lartillotbayesian,pagelpyhlogentic,wang2008class}.  The modified likelihood proposed here does not eliminate all potential pitfalls associated with the limiting distributions of LR statistics for mixture models of codon evolution, but it does do well to correct for one common issue.  Implementations for a variety of mixture models would be straightforward to implement, thus there is no compelling reason not add a penalty term for small mixing weights, especially, as in the case with model M2a, there is little impact on power.
+
+\section{Appendix I}
+\singlespacing
+\setcounter{equation}{0}
+We prove below that the limiting distribution of the modified likelihood ratio statistic is $\chi_0^2/2 + \chi_1^2/2$.  We assume without proof that the codon model considered is identifiable: for a fixed tree, no two distinct sets of parameters give exactly the same distribution of site patterns.  Such results have not been established for codon models.  However, there are a number identifiability results for similar rates-across-sites \citep{allman2008identifiability} and covarion models \citep{allman2009identifiability} that suggest it is a plausible assumption.  We assume as well that third partial derivatives of the probability of a site pattern, over any set of parameters, is bounded in a neighbourhood of the true parameter values.  Finally we assume that the covariance matrix $V$ defined below is positive definite.
+
+\subsection{Taylor's Series}
+Let $\beta=(\omega_+,\psi^T)^T$ and let $\beta^{0}=[1,(\psi^{0})^T]^T$ where $\psi^0$ denotes the true generating parameter under the null hypothesis.  It follows similarly as in \cite{chen2004testing} that $\hat\beta \rightarrow \beta^0$ where $\hat\beta$ is the modified ML estimator.  Since the convergence of the modified ML estimator $\hat p_+$ of $p_+$ is at present unclear, we approximate modified likelihood ratios through Taylor's series approximation of the log likelihoods, with respect to $\beta$ at $\beta^0$, holding $p_+$ fixed:
+\begin{equation}
+  \label{eq:a1}
+\tilde l(p_+,\omega_+,\psi) -  l_H(\psi^0) = L(\beta^0;p_+) + Q(\beta^0;p_+) + C(\beta^*;p_+) + C\log(p_+)
+\end{equation}
+where $L$, $Q$ and $C$ denote the linear, quadratic and cubic terms and $\beta^*$ is some value between $\beta$ and $\beta^0$.
+
+\subsection{Linear Term}
+The linear term is
+\begin{equation}
+  \nonumber
+  L(\beta^0;p_+) = (\beta - \beta^0)^T \sum_h \pd{}{\beta} \log p(x_h;\beta^0,p_+)
+\end{equation}
+It is not difficult to show that the collection, $S(x_h)_\psi,$ of derivatives of $\log p(x_h;\beta^0,p_+)$ with respect to $\psi$ are independent of $p_+$.  The other derivative is
+\begin{equation}
+  \label{eq:a3}
+  \pd{}{\omega_+} \log p(x_h;\beta^0,p_+) = p_+ (1-p_0) \pd{}{\omega} p(x|1;\zeta)/p(x_h;\beta^0,p_+) =: p_+ S(x_h)_{\omega_+}
+\end{equation}
+so that $S(x_h)^T=[S(x_h)_{\omega_+}, S(x_h)_\psi^T]$ is independent of $p_+$.  Standard likelihood theory gives that $E[S(X_h)]=0$, so by the Central Limit Theorem, $n^{-1/2}S_n=n^{-1/2}\sum S(X_h)$ is approximately normal with mean 0 and a covariance matrix we denote by $V$.  Let $\delta_n^T=\sqrt{n}[p_+(\omega_+-1), (\psi - \psi^0)^T].$  Then
+\begin{equation}
+  \label{eq:a4}
+  L(\beta^0;p_+) = n^{-1/2}S_n^T \delta_n
+\end{equation}
+
+\subsection{Quadratic Term}
+The quadratic term in (\ref{eq:a1}) is
+\begin{equation}
+  \label{eq:a5}
+  Q(\beta^0;p_+) = \frac{1}{2} (\beta - \beta^0)^T l^{(2)}(\beta^0)(\beta - \beta^0)
+\end{equation}
+where
+\begin{equation}
+  \label{eq:a6}
+  l^{(2)}(\beta^0) = \sum_h Q^{(1)}(x_h;\beta^0,p_+) + \sum_h \pd{}{\beta} \log p(x_h;\beta^0,p_+) \pd{}{\beta} \log p(x_h;\beta^0,p_+)^T
+\end{equation}
+and $p_H(x_h) Q^{(1)}(x_h;\beta^0,p_+)_{ij}$ is the partial derivative of $p(x_h;\beta^0,p_+)$ with respect to $\beta_i$ and $\beta_j$.  It is not difficult to see that $p_H(x_h) Q^{(1)}(x_h;\beta^0,p_+)_{ij}$ is independent of $p_+$ unless $i=j=1$, in which case it equals $p_+$ times a partial derivative of the form $\partial^2 p(x|1;\zeta)/\partial \omega^2$.  Standard likelihood theory gives that $E[Q^{(1)}(X_h;\beta^0,p_+)]=0$.  Thus the Central Limit Theorem gives that $Q_n^{(1)}:=\sum Q^{(1)}(x_h;\beta^0,p_+)=O_P(n^{1/2})$ for any fixed $p_+$.  Since $Q_n^{(1)}$ depends linearly on $p_+$, $Q_n^{(1)}=O_p(n^{1/2})$ uniformly in $p_+$.  Substituting in (\ref{eq:a6}), then (\ref{eq:a5}) and using the relationships between derivatives of $\log p(x_h;\beta^0,p_+)$ and $S(x_h)$ established earlier,
+\begin{equation}
+  \label{eq:a7}
+  Q(\beta^0;p_+) = \frac{1}{2}(\beta - \beta^0)^TQ_n^{(1)}(\beta - \beta^0) + \frac{1}{2n}\delta_n^T \sum_h S(x_h) S(x_h)^T \delta_n
+\end{equation}
+Let $Q_n^{(2)}=\sum_h S(x_h) S(x_h)^T-nV$.  Since $E[S(x_h) S(x_h)^T]=V$, the Central Limit Theorem gives that $Q_n^{(2)}=O_P(n^{1/2})$.  Since
+\begin{equation}
+  \label{eq:a18}
+  Q(\beta^0;p_+) = \frac{1}{2}(\beta - \beta^0)^TQ_n^{(1)}(\beta - \beta^0) + \frac{1}{2n}\delta_n^T Q_n^{(2)} \delta_n - \frac{1}{2}\delta_n^T V \delta_n
+\end{equation}
+for $\delta_n=O_P(1)$ we have that
+\begin{equation}
+  \label{eq:a8}
+  Q(\beta^0;p_+) = - \frac{1}{2}\delta_n^T V \delta_n + O_P(n^{-1/2})
+\end{equation}
+
+\subsection{Cubic Term}
+The cubic term in (\ref{eq:a1}) is
+\begin{equation}
+  \label{eq:a9}
+  C(\beta^*;p_+) = \frac{1}{6} \sum_{ijk} l^{(3)}(\beta^*;p_+)_{ijk} (\beta - \beta^0)_i(\beta - \beta^0)_j (\beta - \beta^0)_k
+\end{equation}
+where $l^{(3)}(\beta^*;p_+)_{ijk}$ denotes the third partial derivative of the log likelihood with respect to $\beta_i$, $\beta_j$ and $\beta_k$.  Since we have assumed third partial derivatives of $\log p(x_h;\beta^0,p_+)$ are bounded in a neighbourhood of $\beta^0$ by, say, $M(x_h)$, $|l^{(3)}(\beta^*;p_+)|/n$ is bounded by $n^{-1}\sum_h M(X_h).$  It follows by the Law of Large Numbers that $l^{(3)}(\beta^*;p_+)=O_P(n)$ and consequently that for $\beta-\beta^0=O_P(n^{-1/2})$, $C(\beta^*;p_+)=O_p(n^{-1/2})$.  Combining (\ref{eq:a4}) and (\ref{eq:a8}) in (\ref{eq:a1}) gives that for $\delta_n=O_P(1)$,
+\begin{equation}
+  \label{eq:a10}
+  \tilde l(p_+,\omega_+,\psi) - l_H(\psi^0) = n^{-1/2}S_n^T \delta_n - \frac{1}{2}\delta_n^T V \delta_n + C\log(p_+)+ O_P(n^{-1/2})
+\end{equation}
+
+\subsection{Approximation with the modified MLE}
+Since $\hat\delta$ has not been shown to be equal to $O_p(1)$, (\ref{eq:a10}) does not immediately apply.  However, since $b_n=\hat\delta/|\hat\delta|=O_p(1)$, the argument for (\ref{eq:a10}) gives that
+\begin{equation}
+  \label{eq:a11}
+  \tilde l(\hat p_+,\hat\omega_+,\hat\psi) - l_H(\psi^0) =  |\hat\delta|^2 \{n^{-1/2}S_n^T b_n/ |\hat\delta| - \frac{1}{2}b_n^T V b_n + O_P(n^{-1/2})\} + C\log(\hat p_+)
+\end{equation}
+Since $V$ is positive definite, the right-hand side of (\ref{eq:a11}) becomes negative if $|\hat\delta|$ diverges.  However, since $\hat\beta$ is a maximizer, the difference in (\ref{eq:a11}) is always positive.  Thus it must be the case that $\hat\delta=O_p(1)$.  This implies that $\hat\psi-\psi^0=O_P(n^{-1/2})$ and that $\hat p_+ (\hat\omega_+ - 1) =O_P(n^{-1/2})$.  Similarly as in Lemma 1 of \cite{chen2004testing}, with probability, converging to 1, $\hat p_+\ge \epsilon$ for some $\epsilon > 0$, so that $\hat\omega_+ - 1=O_P(n^{-1/2})$.  Thus the approximation (\ref{eq:a10}) applies with $\beta=\hat\beta$:
+\begin{eqnarray}
+  \nonumber
+  \tilde l(\hat p_+,\hat\omega_+,\hat\psi) - l_H(\psi^0) &=& n^{-1/2}S_n^T \hat\delta_n - \frac{1}{2}\hat\delta_n^T V \hat\delta_n + C\log(\hat p_+)+ O_P(n^{-1/2})\\
+\label{eq:a12}
+&\le& \max_{\delta,p_+} \{n^{-1/2}S_n^T \delta - \frac{1}{2} \delta^T V \delta + C\log(p_+)\} + O_P(n^{-1/2})
+\end{eqnarray}
+The inequality (\ref{eq:a12}) holds when maximization is restricted so that the maximizing $\delta$ and $p_+$ correspond to a valid $\beta$ and $p_+$: $\delta_{\omega_+} \ge 0$ and $p_+ \le 1$.  If we denote the corresponding $\beta$ and $p_+$ as $\tilde\beta$ and $\tilde p_+$, since the maximizing $\delta$ and $p_+$ are $O_P(1)$, the expression in (\ref{eq:a12}) is the same as $\tilde l(\tilde p_+,\tilde\omega_+,\tilde\psi) - l_H(\psi^0)$ up to the order indicated.  Since $\tilde  l(\hat p_+,\hat\omega_+,\hat\psi)- l_H(\psi^0)$ is larger than $\tilde l(\tilde p_+,\tilde\omega_+,\tilde\psi) - l_H(\psi^0)$, the reverse inequality holds in (\ref{eq:a12}) as well, implying that it is an equality.  The maximized value of $C\log(p_+)$ is $C\log(1)=0$.  Thus (\ref{eq:a12}) is
+\begin{equation}
+  \label{eq:a13}
+  \tilde l(\hat p_+,\hat\omega_+,\hat\psi) - l_H(\psi^0) = \max_{\delta} \{n^{-1/2}S_n^T \delta - \frac{1}{2} \delta^T V \delta\}+ O_P(n^{-1/2})
+\end{equation}
+
+\subsection{The log likelihood under the null}
+No modification of the likelihood is considered under the null, so standard ML results gives that
+\begin{equation}
+  \label{eq:a20}
+l_H(\psi)- l_H(\psi^0) = (n^{-1/2}S_{n\psi})^TV_{\psi\psi}^{-1}(n^{-1/2}S_{n\psi} )+  O_P(n^{-1/2})
+\end{equation}
+The difference between (\ref{eq:a12}) and (\ref{eq:a20}) gives that the modified likelihood ratio satisfies that
+\begin{equation}
+  \label{eq:a14}
+ \tilde l(\hat p_+,\hat\omega_+,\hat\psi) - l_H(\psi) =  \max_{\delta} \{2n^{-1/2}S_n^T \delta - \delta^T V \delta\}
+-  (n^{-1/2}S_{n\psi})^TV_{\psi\psi}^{-1}(n^{-1/2}S_{n\psi} )+  O_P(n^{-1/2})
+\end{equation}
+
+\subsection{Maximization under the alternative}
+Omitting details, after simplification, maximizing over $\delta$ with $\delta_{\omega_+}$ fixed gives
+\begin{equation}
+  \label{eq:a15}
+ \max_{\delta} \{2n^{-1/2}S_n^T \delta - \delta^T V \delta\}
+=   (n^{-1/2}S_{n\psi})^TV_{\psi\psi}^{-1}(n^{-1/2}S_{n\psi} ) + 2 \delta_{\omega_+} n^{-1/2} S_{n\omega_+}^c - \delta_{\omega_+}^2 V_{\omega_+}^c
+\end{equation}
+where
+\begin{equation}
+  \label{eq:a16}
+  S_{n\omega_+}^c = S_{n\omega_+} - V_{\omega_+\psi} V_{\psi\psi}^{-1} S_{n\psi}, ~~~ V_{\omega_+}^c = V_{\omega_+\omega_+} - V_{\omega_+\psi} V_{\psi\psi}^{-1} V_{\psi\omega_+}
+\end{equation}
+If $S_{n\omega_+}^c < 0$ in (\ref{eq:a15}) the right hand side is decreasing in $\delta_{\omega_+}$ and so, subject to the restriction that $\delta_{\omega_+}\ge 0$, the maximizing $\delta_{\omega_+}=0$.  Otherwise the maximizer is $n^{-1/2} S_{n\omega_+}^c/\sqrt{V_{\omega_+}^c}$.  Substituting in (\ref{eq:a15}) and (\ref{eq:a14}) gives
+\begin{equation}
+  \label{eq:a17}
+ \tilde l(\hat p_+,\hat\omega_+,\hat\psi) - l_H(\psi) = [n^{-1/2} S_{n\omega_+}^c/\sqrt{V_{\omega_+}^c}]_+^2 + O_P(n^{-1/2})
+\end{equation}
+
+\subsection{Distribution of $S_{n\omega_+}^c$}
+Because $n^{-1/2}S_{n\omega_+}^c$ is a linear transformation of $n^{-1/2}S_n$ which has an approximate normal distribution with mean 0 and covariance matrix $V$, it too has a normal distribution.  It has mean 0 and variance
+\begin{eqnarray}
+\nonumber
+  {\rm Var}(n^{-1/2}S_{n\omega_+}^c) &=& {\rm Var}(n^{-1/2}S_{n\omega_+}) - 2 V_{\omega_+\psi} V_{\psi\psi}^{-1} {\rm Cov}(n^{-1/2}S_{n\psi},n^{-1/2}S_{n\omega_+}) \\
+\nonumber
+&&~~~~~~~~~
++ V_{\omega_+\psi} V_{\psi\psi}^{-1}  {\rm Var}(n^{-1/2}S_{n\psi})  V_{\psi\psi}^{-1} V_{\psi\omega_+}\\
+\nonumber
+&=& V_{\omega_+\omega_+} - 2 V_{\omega_+\psi} V_{\psi\psi}^{-1} V_{\psi\omega_+} + V_{\omega_+\psi} V_{\psi\psi}^{-1} V_{\psi\psi} V_{\psi\psi}^{-1} V_{\psi\omega_+} = V_{\omega_+}^c
+\end{eqnarray}
+Thus $n^{-1/2}S_{n\omega_+}^c/\sqrt{V_{\omega_+}^c}$ is approximately standard normal.  It follows from $Z\sim N(0,1)$ giving $Z^2\sim \chi_1^2$ and $Z^2$ being independent of the event that $Z>0$, that the limiting distribution of $W$ is $\chi_1^2/2 + \chi_0^2/2.$
+\section{Supplementary Materials}
+
+\setcounter{table}{0}
+\makeatletter
+\renewcommand{\thetable}{S\@arabic\c@table}
+\makeatother
+
+\setcounter{figure}{0}
+\makeatletter
+\renewcommand{\thefigure}{S\@arabic\c@figure}
+\makeatother
+
+\setcounter{page}{1}
+
+\begin{figure}[H]
+    \centering
+    <<CDF5taxaTL6,echo=F,warning=F>>=
+    rm(list=ls())
+    p0_0.25_w0_0.25_5_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_6/data/p0_0.25_w0_0.25_5_taxa_tl_6_m1a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.25_5_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_6/data/p0_0.25_w0_0.25_5_taxa_tl_6_m2a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.25_5_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_6/data/p0_0.25_w0_0.25_5_taxa_tl_6_c2_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_5_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_6/data/p0_0.25_w0_0.5_5_taxa_tl_6_m1a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_5_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_6/data/p0_0.25_w0_0.5_5_taxa_tl_6_m2a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_5_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_6/data/p0_0.25_w0_0.5_5_taxa_tl_6_c2_lnLs.csv",sep=',')
+
+    p0_0.5_w0_0.25_5_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_6/data/p0_0.5_w0_0.25_5_taxa_tl_6_m1a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.25_5_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_6/data/p0_0.5_w0_0.25_5_taxa_tl_6_m2a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.25_5_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_6/data/p0_0.5_w0_0.25_5_taxa_tl_6_c2_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_5_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_6/data/p0_0.5_w0_0.5_5_taxa_tl_6_m1a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_5_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_6/data/p0_0.5_w0_0.5_5_taxa_tl_6_m2a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_5_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_6/data/p0_0.5_w0_0.5_5_taxa_tl_6_c2_lnLs.csv",sep=',')
+
+    p0_0.75_w0_0.25_5_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_6/data/p0_0.75_w0_0.25_5_taxa_tl_6_m1a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.25_5_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_6/data/p0_0.75_w0_0.25_5_taxa_tl_6_m2a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.25_5_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_6/data/p0_0.75_w0_0.25_5_taxa_tl_6_c2_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_5_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_6/data/p0_0.75_w0_0.5_5_taxa_tl_6_m1a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_5_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_6/data/p0_0.75_w0_0.5_5_taxa_tl_6_m2a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_5_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_6/data/p0_0.75_w0_0.5_5_taxa_tl_6_c2_lnLs.csv",sep=',')
+
+    lrs_p0_0.25_w0_0.25_5_taxa_m2a <- sort(2*(p0_0.25_w0_0.25_5_taxa_m2a_lnl-p0_0.25_w0_0.25_5_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.25_5_taxa_c2 <- sort(2*(p0_0.25_w0_0.25_5_taxa_c2_lnl-p0_0.25_w0_0.25_5_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.5_5_taxa_m2a <- sort(2*(p0_0.25_w0_0.5_5_taxa_m2a_lnl-p0_0.25_w0_0.5_5_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.5_5_taxa_c2 <- sort(2*(p0_0.25_w0_0.5_5_taxa_c2_lnl-p0_0.25_w0_0.5_5_taxa_m1a_lnl))
+
+    lrs_p0_0.5_w0_0.25_5_taxa_m2a <- sort(2*(p0_0.5_w0_0.25_5_taxa_m2a_lnl-p0_0.5_w0_0.25_5_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.25_5_taxa_c2 <- sort(2*(p0_0.5_w0_0.25_5_taxa_c2_lnl-p0_0.5_w0_0.25_5_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.5_5_taxa_m2a <- sort(2*(p0_0.5_w0_0.5_5_taxa_m2a_lnl-p0_0.5_w0_0.5_5_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.5_5_taxa_c2 <- sort(2*(p0_0.5_w0_0.5_5_taxa_c2_lnl-p0_0.5_w0_0.5_5_taxa_m1a_lnl))
+
+    lrs_p0_0.75_w0_0.25_5_taxa_m2a <- sort(2*(p0_0.75_w0_0.25_5_taxa_m2a_lnl-p0_0.75_w0_0.25_5_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.25_5_taxa_c2 <- sort(2*(p0_0.75_w0_0.25_5_taxa_c2_lnl-p0_0.75_w0_0.25_5_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.5_5_taxa_m2a <- sort(2*(p0_0.75_w0_0.5_5_taxa_m2a_lnl-p0_0.75_w0_0.5_5_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.5_5_taxa_c2 <- sort(2*(p0_0.75_w0_0.5_5_taxa_c2_lnl-p0_0.75_w0_0.5_5_taxa_m1a_lnl))
+
+    N <- length(p0_0.25_w0_0.25_5_taxa_m1a_lnl)
+    x <- seq(0,6.3,length.out=N)
+
+    lrs <- c(x,lrs_p0_0.25_w0_0.25_5_taxa_m2a,lrs_p0_0.25_w0_0.25_5_taxa_c2,
+             x,lrs_p0_0.25_w0_0.5_5_taxa_m2a,lrs_p0_0.25_w0_0.5_5_taxa_c2,
+             x,lrs_p0_0.5_w0_0.25_5_taxa_m2a,lrs_p0_0.5_w0_0.25_5_taxa_c2,
+             x,lrs_p0_0.5_w0_0.5_5_taxa_m2a,lrs_p0_0.5_w0_0.5_5_taxa_c2,
+             x,lrs_p0_0.75_w0_0.25_5_taxa_m2a,lrs_p0_0.75_w0_0.25_5_taxa_c2,
+             x,lrs_p0_0.75_w0_0.5_5_taxa_m2a,lrs_p0_0.75_w0_0.5_5_taxa_c2)
+
+    prob.t <- 1/2+pchisq(x,1)/2
+    cprob <- rep(c(prob.t,rep(1:N/N,2)),6)
+
+    cdf.data <- data.frame(lrs,cprob,
+                           weight=rep(c(0.25,0.5,0.75),each=6*N),
+                           omega=rep(c(0.25,0.5),each=3*N,times=3),
+                           model=rep(c('Theory','M2a (C=0)','M2a (C=2)'),each=N,times=6))
+
+    cdf.plot <- ggplot(cdf.data,aes(lrs,cprob)) +
+        coord_cartesian(xlim=c(0,6), ylim=c(0.5,1)) +
+        labs(x="LRS",y=expression("P(X"<="x)")) +
+        geom_line(aes(linetype=model),size=.5) +
+        scale_linetype_manual(values=c("dashed","dotted","solid"),labels=c('M2a (C=0)','M2a (C=2)',expression(chi[0]^2/2 + chi[1]^2/2))) +
+        scale_y_continuous(breaks=scales::pretty_breaks(n=3)) +
+        facet_grid(weight~omega,labeller=label_bquote(cols=omega[0]*'='*.(omega),rows=p[0]*'='*.(weight)))
+
+    cdf.plot +
+        theme(panel.spacing=unit(0,"lines"),
+              panel.background=element_blank(),
+              strip.background=element_blank(),
+              legend.title=element_blank(),
+              legend.text.align=0,
+              legend.key=element_rect(fill="transparent"),
+              legend.position=c(.84,.8),
+              legend.key.width=unit(2.8,"line"),
+              axis.line=element_line(colour="black"),
+              text=element_text(size=16),
+              panel.border = element_rect(colour = "black", fill=NA, size=1))
+@
+  \caption[]{Cumulative distribution functions (CDF) of likelihood (C=0) and modified likelihood (C=2) ratio statistics under the nested model pair M1a/M2a for six simulation settings.  For each simulation setting, 10,000 sequence alignments were generated with two site classes, $\omega<1$ and $\omega=1$ using a 5-taxon tree topology with branch lengths summing to 6.  The value of $\omega_0$ and its weight, $p_0$, used to generate the data are shown as column and row labels.  CDFs for $\chi^2_0/2 + \chi^2_1/2$ are also included.}
+  \label{fig:CDF5taxaTL6}
+\end{figure}
+
+\clearpage
+
+\begin{figure}[H]
+    \centering
+    <<CDF5taxaTL9,echo=F,warning=F>>=
+    rm(list=ls())
+    p0_0.25_w0_0.25_5_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_9/data/p0_0.25_w0_0.25_5_taxa_tl_9_m1a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.25_5_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_9/data/p0_0.25_w0_0.25_5_taxa_tl_9_m2a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.25_5_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_9/data/p0_0.25_w0_0.25_5_taxa_tl_9_c2_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_5_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_9/data/p0_0.25_w0_0.5_5_taxa_tl_9_m1a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_5_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_9/data/p0_0.25_w0_0.5_5_taxa_tl_9_m2a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_5_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_9/data/p0_0.25_w0_0.5_5_taxa_tl_9_c2_lnLs.csv",sep=',')
+
+    p0_0.5_w0_0.25_5_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_9/data/p0_0.5_w0_0.25_5_taxa_tl_9_m1a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.25_5_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_9/data/p0_0.5_w0_0.25_5_taxa_tl_9_m2a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.25_5_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_9/data/p0_0.5_w0_0.25_5_taxa_tl_9_c2_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_5_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_9/data/p0_0.5_w0_0.5_5_taxa_tl_9_m1a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_5_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_9/data/p0_0.5_w0_0.5_5_taxa_tl_9_m2a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_5_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_9/data/p0_0.5_w0_0.5_5_taxa_tl_9_c2_lnLs.csv",sep=',')
+
+    p0_0.75_w0_0.25_5_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_9/data/p0_0.75_w0_0.25_5_taxa_tl_9_m1a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.25_5_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_9/data/p0_0.75_w0_0.25_5_taxa_tl_9_m2a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.25_5_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_9/data/p0_0.75_w0_0.25_5_taxa_tl_9_c2_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_5_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_9/data/p0_0.75_w0_0.5_5_taxa_tl_9_m1a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_5_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_9/data/p0_0.75_w0_0.5_5_taxa_tl_9_m2a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_5_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_9/data/p0_0.75_w0_0.5_5_taxa_tl_9_c2_lnLs.csv",sep=',')
+
+    lrs_p0_0.25_w0_0.25_5_taxa_m2a <- sort(2*(p0_0.25_w0_0.25_5_taxa_m2a_lnl-p0_0.25_w0_0.25_5_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.25_5_taxa_c2 <- sort(2*(p0_0.25_w0_0.25_5_taxa_c2_lnl-p0_0.25_w0_0.25_5_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.5_5_taxa_m2a <- sort(2*(p0_0.25_w0_0.5_5_taxa_m2a_lnl-p0_0.25_w0_0.5_5_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.5_5_taxa_c2 <- sort(2*(p0_0.25_w0_0.5_5_taxa_c2_lnl-p0_0.25_w0_0.5_5_taxa_m1a_lnl))
+
+    lrs_p0_0.5_w0_0.25_5_taxa_m2a <- sort(2*(p0_0.5_w0_0.25_5_taxa_m2a_lnl-p0_0.5_w0_0.25_5_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.25_5_taxa_c2 <- sort(2*(p0_0.5_w0_0.25_5_taxa_c2_lnl-p0_0.5_w0_0.25_5_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.5_5_taxa_m2a <- sort(2*(p0_0.5_w0_0.5_5_taxa_m2a_lnl-p0_0.5_w0_0.5_5_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.5_5_taxa_c2 <- sort(2*(p0_0.5_w0_0.5_5_taxa_c2_lnl-p0_0.5_w0_0.5_5_taxa_m1a_lnl))
+
+    lrs_p0_0.75_w0_0.25_5_taxa_m2a <- sort(2*(p0_0.75_w0_0.25_5_taxa_m2a_lnl-p0_0.75_w0_0.25_5_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.25_5_taxa_c2 <- sort(2*(p0_0.75_w0_0.25_5_taxa_c2_lnl-p0_0.75_w0_0.25_5_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.5_5_taxa_m2a <- sort(2*(p0_0.75_w0_0.5_5_taxa_m2a_lnl-p0_0.75_w0_0.5_5_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.5_5_taxa_c2 <- sort(2*(p0_0.75_w0_0.5_5_taxa_c2_lnl-p0_0.75_w0_0.5_5_taxa_m1a_lnl))
+
+    N <- length(p0_0.25_w0_0.25_5_taxa_m1a_lnl)
+    x <- seq(0,6.3,length.out=N)
+
+    lrs <- c(x,lrs_p0_0.25_w0_0.25_5_taxa_m2a,lrs_p0_0.25_w0_0.25_5_taxa_c2,
+             x,lrs_p0_0.25_w0_0.5_5_taxa_m2a,lrs_p0_0.25_w0_0.5_5_taxa_c2,
+             x,lrs_p0_0.5_w0_0.25_5_taxa_m2a,lrs_p0_0.5_w0_0.25_5_taxa_c2,
+             x,lrs_p0_0.5_w0_0.5_5_taxa_m2a,lrs_p0_0.5_w0_0.5_5_taxa_c2,
+             x,lrs_p0_0.75_w0_0.25_5_taxa_m2a,lrs_p0_0.75_w0_0.25_5_taxa_c2,
+             x,lrs_p0_0.75_w0_0.5_5_taxa_m2a,lrs_p0_0.75_w0_0.5_5_taxa_c2)
+
+    prob.t <- 1/2+pchisq(x,1)/2
+    cprob <- rep(c(prob.t,rep(1:N/N,2)),6)
+
+    cdf.data <- data.frame(lrs,cprob,
+                           weight=rep(c(0.25,0.5,0.75),each=6*N),
+                           omega=rep(c(0.25,0.5),each=3*N,times=3),
+                           model=rep(c('Theory','M2a (C=0)','M2a (C=2)'),each=N,times=6))
+
+    cdf.plot <- ggplot(cdf.data,aes(lrs,cprob)) +
+        coord_cartesian(xlim=c(0,6), ylim=c(0.5,1)) +
+        labs(x="LRS",y=expression("P(X"<="x)")) +
+        geom_line(aes(linetype=model),size=.5) +
+        scale_linetype_manual(values=c("dashed","dotted","solid"),labels=c('M2a (C=0)','M2a (C=2)',expression(chi[0]^2/2 + chi[1]^2/2))) +
+        scale_y_continuous(breaks=scales::pretty_breaks(n=3)) +
+        facet_grid(weight~omega,labeller=label_bquote(cols=omega[0]*'='*.(omega),rows=p[0]*'='*.(weight)))
+
+    cdf.plot +
+        theme(panel.spacing=unit(0,"lines"),
+              panel.background=element_blank(),
+              strip.background=element_blank(),
+              legend.title=element_blank(),
+              legend.text.align=0,
+              legend.key=element_rect(fill="transparent"),
+              legend.position=c(.84,.8),
+              legend.key.width=unit(2.8,"line"),
+              axis.line=element_line(colour="black"),
+              text=element_text(size=16),
+              panel.border = element_rect(colour = "black", fill=NA, size=1))
+@
+  \caption[]{CDFs of LR (C=0) and modified LR (C=2) statistics under M1a/M2a nested model pairs for six simulation settings.  For each simulation setting, 10,000 sequence alignments were generated with two site classes, $\omega<1$ and $\omega=1$ using a 5-taxon tree topology with branch lengths summing to 9.  The value of $\omega_0$ and its weight, $p_0$, used to generate the data are shown as column and row labels.  CDFs for $\chi^2_0/2 + \chi^2_1/2$ are also included.}
+  \label{fig:CDF5taxaTL9}
+\end{figure}
+
+\clearpage
+
+\begin{figure}[H]
+    \centering
+    <<CDF10taxaTL3,echo=F,warning=F>>=
+    rm(list=ls())
+    p0_0.25_w0_0.25_10_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_3/data/p0_0.25_w0_0.25_m1a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.25_10_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_3/data/p0_0.25_w0_0.25_m2a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.25_10_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_3/data/p0_0.25_w0_0.25_c2_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_10_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_3/data/p0_0.25_w0_0.5_m1a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_10_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_3/data/p0_0.25_w0_0.5_m2a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_10_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_3/data/p0_0.25_w0_0.5_c2_lnLs.csv",sep=',')
+
+    p0_0.5_w0_0.25_10_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_3/data/p0_0.5_w0_0.25_m1a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.25_10_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_3/data/p0_0.5_w0_0.25_m2a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.25_10_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_3/data/p0_0.5_w0_0.25_c2_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_10_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_3/data/p0_0.5_w0_0.5_m1a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_10_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_3/data/p0_0.5_w0_0.5_m2a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_10_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_3/data/p0_0.5_w0_0.5_c2_lnLs.csv",sep=',')
+
+    p0_0.75_w0_0.25_10_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_3/data/p0_0.75_w0_0.25_m1a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.25_10_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_3/data/p0_0.75_w0_0.25_m2a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.25_10_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_3/data/p0_0.75_w0_0.25_c2_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_10_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_3/data/p0_0.75_w0_0.5_m1a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_10_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_3/data/p0_0.75_w0_0.5_m2a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_10_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_3/data/p0_0.75_w0_0.5_c2_lnLs.csv",sep=',')
+
+    lrs_p0_0.25_w0_0.25_10_taxa_m2a <- sort(2*(p0_0.25_w0_0.25_10_taxa_m2a_lnl-p0_0.25_w0_0.25_10_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.25_10_taxa_c2 <- sort(2*(p0_0.25_w0_0.25_10_taxa_c2_lnl-p0_0.25_w0_0.25_10_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.5_10_taxa_m2a <- sort(2*(p0_0.25_w0_0.5_10_taxa_m2a_lnl-p0_0.25_w0_0.5_10_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.5_10_taxa_c2 <- sort(2*(p0_0.25_w0_0.5_10_taxa_c2_lnl-p0_0.25_w0_0.5_10_taxa_m1a_lnl))
+
+    lrs_p0_0.5_w0_0.25_10_taxa_m2a <- sort(2*(p0_0.5_w0_0.25_10_taxa_m2a_lnl-p0_0.5_w0_0.25_10_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.25_10_taxa_c2 <- sort(2*(p0_0.5_w0_0.25_10_taxa_c2_lnl-p0_0.5_w0_0.25_10_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.5_10_taxa_m2a <- sort(2*(p0_0.5_w0_0.5_10_taxa_m2a_lnl-p0_0.5_w0_0.5_10_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.5_10_taxa_c2 <- sort(2*(p0_0.5_w0_0.5_10_taxa_c2_lnl-p0_0.5_w0_0.5_10_taxa_m1a_lnl))
+
+    lrs_p0_0.75_w0_0.25_10_taxa_m2a <- sort(2*(p0_0.75_w0_0.25_10_taxa_m2a_lnl-p0_0.75_w0_0.25_10_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.25_10_taxa_c2 <- sort(2*(p0_0.75_w0_0.25_10_taxa_c2_lnl-p0_0.75_w0_0.25_10_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.5_10_taxa_m2a <- sort(2*(p0_0.75_w0_0.5_10_taxa_m2a_lnl-p0_0.75_w0_0.5_10_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.5_10_taxa_c2 <- sort(2*(p0_0.75_w0_0.5_10_taxa_c2_lnl-p0_0.75_w0_0.5_10_taxa_m1a_lnl))
+
+    N <- length(p0_0.25_w0_0.25_10_taxa_m1a_lnl)
+    x <- seq(0,6.3,length.out=N)
+
+    lrs <- c(x,lrs_p0_0.25_w0_0.25_10_taxa_m2a,lrs_p0_0.25_w0_0.25_10_taxa_c2,
+             x,lrs_p0_0.25_w0_0.5_10_taxa_m2a,lrs_p0_0.25_w0_0.5_10_taxa_c2,
+             x,lrs_p0_0.5_w0_0.25_10_taxa_m2a,lrs_p0_0.5_w0_0.25_10_taxa_c2,
+             x,lrs_p0_0.5_w0_0.5_10_taxa_m2a,lrs_p0_0.5_w0_0.5_10_taxa_c2,
+             x,lrs_p0_0.75_w0_0.25_10_taxa_m2a,lrs_p0_0.75_w0_0.25_10_taxa_c2,
+             x,lrs_p0_0.75_w0_0.5_10_taxa_m2a,lrs_p0_0.75_w0_0.5_10_taxa_c2)
+
+    prob.t <- 1/2+pchisq(x,1)/2
+    cprob <- rep(c(prob.t,rep(1:N/N,2)),6)
+
+    cdf.data <- data.frame(lrs,cprob,
+                           weight=rep(c(0.25,0.5,0.75),each=6*N),
+                           omega=rep(c(0.25,0.5),each=3*N,times=3),
+                           model=rep(c('Theory','M2a (C=0)','M2a (C=2)'),each=N,times=6))
+
+    cdf.plot <- ggplot(cdf.data,aes(lrs,cprob)) +
+        coord_cartesian(xlim=c(0,6), ylim=c(0.5,1)) +
+        labs(x="LRS",y=expression("P(X"<="x)")) +
+        geom_line(aes(linetype=model),size=.5) +
+        scale_linetype_manual(values=c("dashed","dotted","solid"),labels=c('M2a (C=0)','M2a (C=2)',expression(chi[0]^2/2 + chi[1]^2/2))) +
+        scale_y_continuous(breaks=scales::pretty_breaks(n=3)) +
+        facet_grid(weight~omega,labeller=label_bquote(cols=omega[0]*'='*.(omega),rows=p[0]*'='*.(weight)))
+
+    cdf.plot +
+        theme(panel.spacing=unit(0,"lines"),
+              panel.background=element_blank(),
+              strip.background=element_blank(),
+              legend.title=element_blank(),
+              legend.text.align=0,
+              legend.key=element_rect(fill="transparent"),
+              legend.position=c(.84,.8),
+              legend.key.width=unit(2.8,"line"),
+              axis.line=element_line(colour="black"),
+              text=element_text(size=16),
+              panel.border = element_rect(colour = "black", fill=NA, size=1))
+@
+  \caption[]{CDFs of LR (C=0) and modified LR (C=2) statistics under M1a/M2a nested model pairs for six simulation settings.  For each simulation setting, 10,000 sequence alignments were generated with two site classes, $\omega<1$ and $\omega=1$ using a balanced, 10-taxon tree topology with branch lengths summing to 3.  The value of $\omega_0$ and its weight, $p_0$, used to generate the data are shown as column and row labels.  CDFs for $\chi^2_0/2 + \chi^2_1/2$ are also included.}
+  \label{fig:CDF10taxaTL3}
+\end{figure}
+
+\clearpage
+
+\begin{figure}[H]
+    \centering
+    <<CDF10taxaTL6,echo=F,warning=F>>=
+    rm(list=ls())
+    p0_0.25_w0_0.25_10_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_6/data/p0_0.25_w0_0.25_10_taxa_tl_6_m1a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.25_10_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_6/data/p0_0.25_w0_0.25_10_taxa_tl_6_m2a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.25_10_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_6/data/p0_0.25_w0_0.25_10_taxa_tl_6_c2_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_10_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_6/data/p0_0.25_w0_0.5_10_taxa_tl_6_m1a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_10_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_6/data/p0_0.25_w0_0.5_10_taxa_tl_6_m2a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_10_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_6/data/p0_0.25_w0_0.5_10_taxa_tl_6_c2_lnLs.csv",sep=',')
+
+    p0_0.5_w0_0.25_10_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_6/data/p0_0.5_w0_0.25_10_taxa_tl_6_m1a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.25_10_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_6/data/p0_0.5_w0_0.25_10_taxa_tl_6_m2a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.25_10_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_6/data/p0_0.5_w0_0.25_10_taxa_tl_6_c2_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_10_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_6/data/p0_0.5_w0_0.5_10_taxa_tl_6_m1a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_10_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_6/data/p0_0.5_w0_0.5_10_taxa_tl_6_m2a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_10_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_6/data/p0_0.5_w0_0.5_10_taxa_tl_6_c2_lnLs.csv",sep=',')
+
+    p0_0.75_w0_0.25_10_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_6/data/p0_0.75_w0_0.25_10_taxa_tl_6_m1a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.25_10_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_6/data/p0_0.75_w0_0.25_10_taxa_tl_6_m2a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.25_10_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_6/data/p0_0.75_w0_0.25_10_taxa_tl_6_c2_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_10_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_6/data/p0_0.75_w0_0.5_10_taxa_tl_6_m1a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_10_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_6/data/p0_0.75_w0_0.5_10_taxa_tl_6_m2a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_10_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_6/data/p0_0.75_w0_0.5_10_taxa_tl_6_c2_lnLs.csv",sep=',')
+
+    lrs_p0_0.25_w0_0.25_10_taxa_m2a <- sort(2*(p0_0.25_w0_0.25_10_taxa_m2a_lnl-p0_0.25_w0_0.25_10_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.25_10_taxa_c2 <- sort(2*(p0_0.25_w0_0.25_10_taxa_c2_lnl-p0_0.25_w0_0.25_10_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.5_10_taxa_m2a <- sort(2*(p0_0.25_w0_0.5_10_taxa_m2a_lnl-p0_0.25_w0_0.5_10_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.5_10_taxa_c2 <- sort(2*(p0_0.25_w0_0.5_10_taxa_c2_lnl-p0_0.25_w0_0.5_10_taxa_m1a_lnl))
+
+    lrs_p0_0.5_w0_0.25_10_taxa_m2a <- sort(2*(p0_0.5_w0_0.25_10_taxa_m2a_lnl-p0_0.5_w0_0.25_10_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.25_10_taxa_c2 <- sort(2*(p0_0.5_w0_0.25_10_taxa_c2_lnl-p0_0.5_w0_0.25_10_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.5_10_taxa_m2a <- sort(2*(p0_0.5_w0_0.5_10_taxa_m2a_lnl-p0_0.5_w0_0.5_10_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.5_10_taxa_c2 <- sort(2*(p0_0.5_w0_0.5_10_taxa_c2_lnl-p0_0.5_w0_0.5_10_taxa_m1a_lnl))
+
+    lrs_p0_0.75_w0_0.25_10_taxa_m2a <- sort(2*(p0_0.75_w0_0.25_10_taxa_m2a_lnl-p0_0.75_w0_0.25_10_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.25_10_taxa_c2 <- sort(2*(p0_0.75_w0_0.25_10_taxa_c2_lnl-p0_0.75_w0_0.25_10_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.5_10_taxa_m2a <- sort(2*(p0_0.75_w0_0.5_10_taxa_m2a_lnl-p0_0.75_w0_0.5_10_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.5_10_taxa_c2 <- sort(2*(p0_0.75_w0_0.5_10_taxa_c2_lnl-p0_0.75_w0_0.5_10_taxa_m1a_lnl))
+
+    N <- length(p0_0.25_w0_0.25_10_taxa_m1a_lnl)
+    x <- seq(0,6.3,length.out=N)
+
+    lrs <- c(x,lrs_p0_0.25_w0_0.25_10_taxa_m2a,lrs_p0_0.25_w0_0.25_10_taxa_c2,
+             x,lrs_p0_0.25_w0_0.5_10_taxa_m2a,lrs_p0_0.25_w0_0.5_10_taxa_c2,
+             x,lrs_p0_0.5_w0_0.25_10_taxa_m2a,lrs_p0_0.5_w0_0.25_10_taxa_c2,
+             x,lrs_p0_0.5_w0_0.5_10_taxa_m2a,lrs_p0_0.5_w0_0.5_10_taxa_c2,
+             x,lrs_p0_0.75_w0_0.25_10_taxa_m2a,lrs_p0_0.75_w0_0.25_10_taxa_c2,
+             x,lrs_p0_0.75_w0_0.5_10_taxa_m2a,lrs_p0_0.75_w0_0.5_10_taxa_c2)
+
+    prob.t <- 1/2+pchisq(x,1)/2
+    cprob <- rep(c(prob.t,rep(1:N/N,2)),6)
+
+    cdf.data <- data.frame(lrs,cprob,
+                           weight=rep(c(0.25,0.5,0.75),each=6*N),
+                           omega=rep(c(0.25,0.5),each=3*N,times=3),
+                           model=rep(c('Theory','M2a (C=0)','M2a (C=2)'),each=N,times=6))
+
+    cdf.plot <- ggplot(cdf.data,aes(lrs,cprob)) +
+        coord_cartesian(xlim=c(0,6), ylim=c(0.5,1)) +
+        labs(x="LRS",y=expression("P(X"<="x)")) +
+        geom_line(aes(linetype=model),size=.5) +
+        scale_linetype_manual(values=c("dashed","dotted","solid"),labels=c('M2a (C=0)','M2a (C=2)',expression(chi[0]^2/2 + chi[1]^2/2))) +
+        scale_y_continuous(breaks=scales::pretty_breaks(n=3)) +
+        facet_grid(weight~omega,labeller=label_bquote(cols=omega[0]*'='*.(omega),rows=p[0]*'='*.(weight)))
+
+    cdf.plot +
+        theme(panel.spacing=unit(0,"lines"),
+              panel.background=element_blank(),
+              strip.background=element_blank(),
+              legend.title=element_blank(),
+              legend.text.align=0,
+              legend.key=element_rect(fill="transparent"),
+              legend.position=c(.84,.8),
+              legend.key.width=unit(2.8,"line"),
+              axis.line=element_line(colour="black"),
+              text=element_text(size=16),
+              panel.border = element_rect(colour = "black", fill=NA, size=1))
+@
+  \caption[]{CDFs of LR (C=0) and modified LR (C=2) statistics under M1a/M2a nested model pairs for six simulation settings.  For each simulation setting, 10,000 sequence alignments were generated with two site classes, $\omega<1$ and $\omega=1$ using a balanced, 10-taxon tree topology with branch lengths summing to 6.  The value of $\omega_0$ and its weight, $p_0$, used to generate the data are shown as column and row labels.  CDFs for $\chi^2_0/2 + \chi^2_1/2$ are also included.}
+  \label{fig:CDF10taxaTL6}
+\end{figure}
+
+\clearpage
+
+\begin{figure}[H]
+    \centering
+    <<CDF10taxaTL9,echo=F,warning=F>>=
+    rm(list=ls())
+    p0_0.25_w0_0.25_10_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_9/data/p0_0.25_w0_0.25_10_taxa_tl_9_m1a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.25_10_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_9/data/p0_0.25_w0_0.25_10_taxa_tl_9_m2a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.25_10_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_9/data/p0_0.25_w0_0.25_10_taxa_tl_9_c2_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_10_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_9/data/p0_0.25_w0_0.5_10_taxa_tl_9_m1a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_10_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_9/data/p0_0.25_w0_0.5_10_taxa_tl_9_m2a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_10_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_9/data/p0_0.25_w0_0.5_10_taxa_tl_9_c2_lnLs.csv",sep=',')
+
+    p0_0.5_w0_0.25_10_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_9/data/p0_0.5_w0_0.25_10_taxa_tl_9_m1a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.25_10_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_9/data/p0_0.5_w0_0.25_10_taxa_tl_9_m2a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.25_10_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_9/data/p0_0.5_w0_0.25_10_taxa_tl_9_c2_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_10_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_9/data/p0_0.5_w0_0.5_10_taxa_tl_9_m1a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_10_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_9/data/p0_0.5_w0_0.5_10_taxa_tl_9_m2a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_10_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_9/data/p0_0.5_w0_0.5_10_taxa_tl_9_c2_lnLs.csv",sep=',')
+
+    p0_0.75_w0_0.25_10_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_9/data/p0_0.75_w0_0.25_10_taxa_tl_9_m1a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.25_10_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_9/data/p0_0.75_w0_0.25_10_taxa_tl_9_m2a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.25_10_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_9/data/p0_0.75_w0_0.25_10_taxa_tl_9_c2_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_10_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_9/data/p0_0.75_w0_0.5_10_taxa_tl_9_m1a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_10_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_9/data/p0_0.75_w0_0.5_10_taxa_tl_9_m2a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_10_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/10_taxa_bl_9/data/p0_0.75_w0_0.5_10_taxa_tl_9_c2_lnLs.csv",sep=',')
+
+    lrs_p0_0.25_w0_0.25_10_taxa_m2a <- sort(2*(p0_0.25_w0_0.25_10_taxa_m2a_lnl-p0_0.25_w0_0.25_10_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.25_10_taxa_c2 <- sort(2*(p0_0.25_w0_0.25_10_taxa_c2_lnl-p0_0.25_w0_0.25_10_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.5_10_taxa_m2a <- sort(2*(p0_0.25_w0_0.5_10_taxa_m2a_lnl-p0_0.25_w0_0.5_10_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.5_10_taxa_c2 <- sort(2*(p0_0.25_w0_0.5_10_taxa_c2_lnl-p0_0.25_w0_0.5_10_taxa_m1a_lnl))
+
+    lrs_p0_0.5_w0_0.25_10_taxa_m2a <- sort(2*(p0_0.5_w0_0.25_10_taxa_m2a_lnl-p0_0.5_w0_0.25_10_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.25_10_taxa_c2 <- sort(2*(p0_0.5_w0_0.25_10_taxa_c2_lnl-p0_0.5_w0_0.25_10_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.5_10_taxa_m2a <- sort(2*(p0_0.5_w0_0.5_10_taxa_m2a_lnl-p0_0.5_w0_0.5_10_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.5_10_taxa_c2 <- sort(2*(p0_0.5_w0_0.5_10_taxa_c2_lnl-p0_0.5_w0_0.5_10_taxa_m1a_lnl))
+
+    lrs_p0_0.75_w0_0.25_10_taxa_m2a <- sort(2*(p0_0.75_w0_0.25_10_taxa_m2a_lnl-p0_0.75_w0_0.25_10_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.25_10_taxa_c2 <- sort(2*(p0_0.75_w0_0.25_10_taxa_c2_lnl-p0_0.75_w0_0.25_10_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.5_10_taxa_m2a <- sort(2*(p0_0.75_w0_0.5_10_taxa_m2a_lnl-p0_0.75_w0_0.5_10_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.5_10_taxa_c2 <- sort(2*(p0_0.75_w0_0.5_10_taxa_c2_lnl-p0_0.75_w0_0.5_10_taxa_m1a_lnl))
+
+    N <- length(p0_0.25_w0_0.25_10_taxa_m1a_lnl)
+    x <- seq(0,6.3,length.out=N)
+
+    lrs <- c(x,lrs_p0_0.25_w0_0.25_10_taxa_m2a,lrs_p0_0.25_w0_0.25_10_taxa_c2,
+             x,lrs_p0_0.25_w0_0.5_10_taxa_m2a,lrs_p0_0.25_w0_0.5_10_taxa_c2,
+             x,lrs_p0_0.5_w0_0.25_10_taxa_m2a,lrs_p0_0.5_w0_0.25_10_taxa_c2,
+             x,lrs_p0_0.5_w0_0.5_10_taxa_m2a,lrs_p0_0.5_w0_0.5_10_taxa_c2,
+             x,lrs_p0_0.75_w0_0.25_10_taxa_m2a,lrs_p0_0.75_w0_0.25_10_taxa_c2,
+             x,lrs_p0_0.75_w0_0.5_10_taxa_m2a,lrs_p0_0.75_w0_0.5_10_taxa_c2)
+
+    prob.t <- 1/2+pchisq(x,1)/2
+    cprob <- rep(c(prob.t,rep(1:N/N,2)),6)
+
+    cdf.data <- data.frame(lrs,cprob,
+                           weight=rep(c(0.25,0.5,0.75),each=6*N),
+                           omega=rep(c(0.25,0.5),each=3*N,times=3),
+                           model=rep(c('Theory','M2a (C=0)','M2a (C=2)'),each=N,times=6))
+
+    cdf.plot <- ggplot(cdf.data,aes(lrs,cprob)) +
+        coord_cartesian(xlim=c(0,6), ylim=c(0.5,1)) +
+        labs(x="LRS",y=expression("P(X"<="x)")) +
+        geom_line(aes(linetype=model),size=.5) +
+        scale_linetype_manual(values=c("dashed","dotted","solid"),labels=c('M2a (C=0)','M2a (C=2)',expression(chi[0]^2/2 + chi[1]^2/2))) +
+        scale_y_continuous(breaks=scales::pretty_breaks(n=3)) +
+        facet_grid(weight~omega,labeller=label_bquote(cols=omega[0]*'='*.(omega),rows=p[0]*'='*.(weight)))
+
+    cdf.plot +
+        theme(panel.spacing=unit(0,"lines"),
+              panel.background=element_blank(),
+              strip.background=element_blank(),
+              legend.title=element_blank(),
+              legend.text.align=0,
+              legend.key=element_rect(fill="transparent"),
+              legend.position=c(.84,.8),
+              legend.key.width=unit(2.8,"line"),
+              axis.line=element_line(colour="black"),
+              text=element_text(size=16),
+              panel.border = element_rect(colour = "black", fill=NA, size=1))
+@
+  \caption[]{CDFs of LR (C=0) and modified LR (C=2) statistics under M1a/M2a nested model pairs for six simulation settings.  For each simulation setting, 10,000 sequence alignments were generated with two site classes, $\omega<1$ and $\omega=1$ using a balanced, 10-taxon tree topology with branch lengths summing to 9.  The value of $\omega_0$ and its weight, $p_0$, used to generate the data are shown as column and row labels.  CDFs for $\chi^2_0/2 + \chi^2_1/2$ are also included.}
+  \label{fig:CDF10taxaTL9}
+\end{figure}
+
+\clearpage
+
+\begin{figure}[H]
+    \centering
+    <<CDF32taxaTL3,echo=F,warning=F>>=
+    p0_0.25_w0_0.25_32_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_3/data/p0_0.25_w0_0.25_32_taxa_tl_3_m1a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.25_32_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_3/data/p0_0.25_w0_0.25_32_taxa_tl_3_m2a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.25_32_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_3/data/p0_0.25_w0_0.25_32_taxa_tl_3_c2_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_32_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_3/data/p0_0.25_w0_0.5_32_taxa_tl_3_m1a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_32_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_3/data/p0_0.25_w0_0.5_32_taxa_tl_3_m2a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_32_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_3/data/p0_0.25_w0_0.5_32_taxa_tl_3_c2_lnLs.csv",sep=',')
+
+    p0_0.5_w0_0.25_32_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_3/data/p0_0.5_w0_0.25_32_taxa_tl_3_m1a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.25_32_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_3/data/p0_0.5_w0_0.25_32_taxa_tl_3_m2a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.25_32_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_3/data/p0_0.5_w0_0.25_32_taxa_tl_3_c2_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_32_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_3/data/p0_0.5_w0_0.5_32_taxa_tl_3_m1a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_32_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_3/data/p0_0.5_w0_0.5_32_taxa_tl_3_m2a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_32_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_3/data/p0_0.5_w0_0.5_32_taxa_tl_3_c2_lnLs.csv",sep=',')
+
+    p0_0.75_w0_0.25_32_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_3/data/p0_0.75_w0_0.25_32_taxa_tl_3_m1a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.25_32_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_3/data/p0_0.75_w0_0.25_32_taxa_tl_3_m2a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.25_32_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_3/data/p0_0.75_w0_0.25_32_taxa_tl_3_c2_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_32_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_3/data/p0_0.75_w0_0.5_32_taxa_tl_3_m1a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_32_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_3/data/p0_0.75_w0_0.5_32_taxa_tl_3_m2a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_32_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_3/data/p0_0.75_w0_0.5_32_taxa_tl_3_c2_lnLs.csv",sep=',')
+
+    lrs_p0_0.25_w0_0.25_32_taxa_m2a <- sort(2*(p0_0.25_w0_0.25_32_taxa_m2a_lnl-p0_0.25_w0_0.25_32_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.25_32_taxa_c2 <- sort(2*(p0_0.25_w0_0.25_32_taxa_c2_lnl-p0_0.25_w0_0.25_32_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.5_32_taxa_m2a <- sort(2*(p0_0.25_w0_0.5_32_taxa_m2a_lnl-p0_0.25_w0_0.5_32_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.5_32_taxa_c2 <- sort(2*(p0_0.25_w0_0.5_32_taxa_c2_lnl-p0_0.25_w0_0.5_32_taxa_m1a_lnl))
+
+    lrs_p0_0.5_w0_0.25_32_taxa_m2a <- sort(2*(p0_0.5_w0_0.25_32_taxa_m2a_lnl-p0_0.5_w0_0.25_32_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.25_32_taxa_c2 <- sort(2*(p0_0.5_w0_0.25_32_taxa_c2_lnl-p0_0.5_w0_0.25_32_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.5_32_taxa_m2a <- sort(2*(p0_0.5_w0_0.5_32_taxa_m2a_lnl-p0_0.5_w0_0.5_32_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.5_32_taxa_c2 <- sort(2*(p0_0.5_w0_0.5_32_taxa_c2_lnl-p0_0.5_w0_0.5_32_taxa_m1a_lnl))
+
+    lrs_p0_0.75_w0_0.25_32_taxa_m2a <- sort(2*(p0_0.75_w0_0.25_32_taxa_m2a_lnl-p0_0.75_w0_0.25_32_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.25_32_taxa_c2 <- sort(2*(p0_0.75_w0_0.25_32_taxa_c2_lnl-p0_0.75_w0_0.25_32_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.5_32_taxa_m2a <- sort(2*(p0_0.75_w0_0.5_32_taxa_m2a_lnl-p0_0.75_w0_0.5_32_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.5_32_taxa_c2 <- sort(2*(p0_0.75_w0_0.5_32_taxa_c2_lnl-p0_0.75_w0_0.5_32_taxa_m1a_lnl))
+
+    N <- length(p0_0.25_w0_0.25_32_taxa_m1a_lnl)
+    x <- seq(0,6.3,length.out=N)
+
+    lrs <- c(x,lrs_p0_0.25_w0_0.25_32_taxa_m2a,lrs_p0_0.25_w0_0.25_32_taxa_c2,
+             x,lrs_p0_0.25_w0_0.5_32_taxa_m2a,lrs_p0_0.25_w0_0.5_32_taxa_c2,
+             x,lrs_p0_0.5_w0_0.25_32_taxa_m2a,lrs_p0_0.5_w0_0.25_32_taxa_c2,
+             x,lrs_p0_0.5_w0_0.5_32_taxa_m2a,lrs_p0_0.5_w0_0.5_32_taxa_c2,
+             x,lrs_p0_0.75_w0_0.25_32_taxa_m2a,lrs_p0_0.75_w0_0.25_32_taxa_c2,
+             x,lrs_p0_0.75_w0_0.5_32_taxa_m2a,lrs_p0_0.75_w0_0.5_32_taxa_c2)
+
+    prob.t <- 1/2+pchisq(x,1)/2
+    cprob <- rep(c(prob.t,rep(1:N/N,2)),6)
+
+    cdf.data <- data.frame(lrs,cprob,
+                           weight=rep(c(0.25,0.5,0.75),each=6*N),
+                           omega=rep(c(0.25,0.5),each=3*N,times=3),
+                           model=rep(c('Theory','M2a (C=0)','M2a (C=2)'),each=N,times=6))
+
+    cdf.plot <- ggplot(cdf.data,aes(lrs,cprob)) +
+        coord_cartesian(xlim=c(0,6), ylim=c(0.5,1)) +
+        labs(x="LRS",y=expression("P(X"<="x)")) +
+        geom_line(aes(linetype=model),size=.5) +
+        scale_linetype_manual(values=c("dashed","dotted","solid"),labels=c('M2a (C=0)','M2a (C=2)',expression(chi[0]^2/2 + chi[1]^2/2))) +
+        scale_y_continuous(breaks=scales::pretty_breaks(n=3)) +
+        facet_grid(weight~omega,labeller=label_bquote(cols=omega[0]*'='*.(omega),rows=p[0]*'='*.(weight)))
+
+    cdf.plot +
+        theme(panel.spacing=unit(0,"lines"),
+              panel.background=element_blank(),
+              strip.background=element_blank(),
+              legend.title=element_blank(),
+              legend.text.align=0,
+              legend.key=element_rect(fill="transparent"),
+              legend.position=c(.84,.8),
+              legend.key.width=unit(2.8,"line"),
+              axis.line=element_line(colour="black"),
+              text=element_text(size=16),
+              panel.border = element_rect(colour = "black", fill=NA, size=1))
+@
+  \caption[]{CDFs of LR (C=0) and modified LR (C=2) statistics under M1a/M2a nested model pairs for six simulation settings.  For each simulation setting, 10,000 sequence alignments were generated with two site classes, $\omega<1$ and $\omega=1$ using a balanced, 32-taxon tree topology with branch lengths summing to 3.  The value of $\omega_0$ and its weight, $p_0$, used to generate the data are shown as column and row labels.  CDFs for $\chi^2_0/2 + \chi^2_1/2$ are also included.}
+  \label{fig:CDF32taxaTL3}
+\end{figure}
+
+\clearpage
+
+\begin{figure}[H]
+    \centering
+    <<CDF32taxaTL6,echo=F,warning=F>>=
+    rm(list=ls())
+    p0_0.25_w0_0.25_32_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_6/data/p0_0.25_w0_0.25_32_taxa_tl_6_m1a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.25_32_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_6/data/p0_0.25_w0_0.25_32_taxa_tl_6_m2a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.25_32_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_6/data/p0_0.25_w0_0.25_32_taxa_tl_6_c2_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_32_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_6/data/p0_0.25_w0_0.5_32_taxa_tl_6_m1a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_32_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_6/data/p0_0.25_w0_0.5_32_taxa_tl_6_m2a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_32_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_6/data/p0_0.25_w0_0.5_32_taxa_tl_6_c2_lnLs.csv",sep=',')
+
+    p0_0.5_w0_0.25_32_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_6/data/p0_0.5_w0_0.25_32_taxa_tl_6_m1a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.25_32_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_6/data/p0_0.5_w0_0.25_32_taxa_tl_6_m2a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.25_32_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_6/data/p0_0.5_w0_0.25_32_taxa_tl_6_c2_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_32_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_6/data/p0_0.5_w0_0.5_32_taxa_tl_6_m1a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_32_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_6/data/p0_0.5_w0_0.5_32_taxa_tl_6_m2a_lnLs.csv",sep=',')
+    p0_0.5_w0_0.5_32_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_6/data/p0_0.5_w0_0.5_32_taxa_tl_6_c2_lnLs.csv",sep=',')
+
+    p0_0.75_w0_0.25_32_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_6/data/p0_0.75_w0_0.25_32_taxa_tl_6_m1a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.25_32_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_6/data/p0_0.75_w0_0.25_32_taxa_tl_6_m2a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.25_32_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_6/data/p0_0.75_w0_0.25_32_taxa_tl_6_c2_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_32_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_6/data/p0_0.75_w0_0.5_32_taxa_tl_6_m1a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_32_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_6/data/p0_0.75_w0_0.5_32_taxa_tl_6_m2a_lnLs.csv",sep=',')
+    p0_0.75_w0_0.5_32_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/32_taxa_bl_6/data/p0_0.75_w0_0.5_32_taxa_tl_6_c2_lnLs.csv",sep=',')
+
+    lrs_p0_0.25_w0_0.25_32_taxa_m2a <- sort(2*(p0_0.25_w0_0.25_32_taxa_m2a_lnl-p0_0.25_w0_0.25_32_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.25_32_taxa_c2 <- sort(2*(p0_0.25_w0_0.25_32_taxa_c2_lnl-p0_0.25_w0_0.25_32_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.5_32_taxa_m2a <- sort(2*(p0_0.25_w0_0.5_32_taxa_m2a_lnl-p0_0.25_w0_0.5_32_taxa_m1a_lnl))
+    lrs_p0_0.25_w0_0.5_32_taxa_c2 <- sort(2*(p0_0.25_w0_0.5_32_taxa_c2_lnl-p0_0.25_w0_0.5_32_taxa_m1a_lnl))
+
+    lrs_p0_0.5_w0_0.25_32_taxa_m2a <- sort(2*(p0_0.5_w0_0.25_32_taxa_m2a_lnl-p0_0.5_w0_0.25_32_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.25_32_taxa_c2 <- sort(2*(p0_0.5_w0_0.25_32_taxa_c2_lnl-p0_0.5_w0_0.25_32_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.5_32_taxa_m2a <- sort(2*(p0_0.5_w0_0.5_32_taxa_m2a_lnl-p0_0.5_w0_0.5_32_taxa_m1a_lnl))
+    lrs_p0_0.5_w0_0.5_32_taxa_c2 <- sort(2*(p0_0.5_w0_0.5_32_taxa_c2_lnl-p0_0.5_w0_0.5_32_taxa_m1a_lnl))
+
+    lrs_p0_0.75_w0_0.25_32_taxa_m2a <- sort(2*(p0_0.75_w0_0.25_32_taxa_m2a_lnl-p0_0.75_w0_0.25_32_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.25_32_taxa_c2 <- sort(2*(p0_0.75_w0_0.25_32_taxa_c2_lnl-p0_0.75_w0_0.25_32_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.5_32_taxa_m2a <- sort(2*(p0_0.75_w0_0.5_32_taxa_m2a_lnl-p0_0.75_w0_0.5_32_taxa_m1a_lnl))
+    lrs_p0_0.75_w0_0.5_32_taxa_c2 <- sort(2*(p0_0.75_w0_0.5_32_taxa_c2_lnl-p0_0.75_w0_0.5_32_taxa_m1a_lnl))
+
+    N <- length(p0_0.25_w0_0.25_32_taxa_m1a_lnl)
+    x <- seq(0,6.3,length.out=N)
+
+    lrs <- c(x,lrs_p0_0.25_w0_0.25_32_taxa_m2a,lrs_p0_0.25_w0_0.25_32_taxa_c2,
+             x,lrs_p0_0.25_w0_0.5_32_taxa_m2a,lrs_p0_0.25_w0_0.5_32_taxa_c2,
+             x,lrs_p0_0.5_w0_0.25_32_taxa_m2a,lrs_p0_0.5_w0_0.25_32_taxa_c2,
+             x,lrs_p0_0.5_w0_0.5_32_taxa_m2a,lrs_p0_0.5_w0_0.5_32_taxa_c2,
+             x,lrs_p0_0.75_w0_0.25_32_taxa_m2a,lrs_p0_0.75_w0_0.25_32_taxa_c2,
+             x,lrs_p0_0.75_w0_0.5_32_taxa_m2a,lrs_p0_0.75_w0_0.5_32_taxa_c2)
+
+    prob.t <- 1/2+pchisq(x,1)/2
+    cprob <- rep(c(prob.t,rep(1:N/N,2)),6)
+
+    cdf.data <- data.frame(lrs,cprob,
+                           weight=rep(c(0.25,0.5,0.75),each=6*N),
+                           omega=rep(c(0.25,0.5),each=3*N,times=3),
+                           model=rep(c('Theory','M2a (C=0)','M2a (C=2)'),each=N,times=6))
+
+    cdf.plot <- ggplot(cdf.data,aes(lrs,cprob)) +
+        coord_cartesian(xlim=c(0,6), ylim=c(0.5,1)) +
+        labs(x="LRS",y=expression("P(X"<="x)")) +
+        geom_line(aes(linetype=model),size=.5) +
+        scale_linetype_manual(values=c("dashed","dotted","solid"),labels=c('M2a (C=0)','M2a (C=2)',expression(chi[0]^2/2 + chi[1]^2/2))) +
+        scale_y_continuous(breaks=scales::pretty_breaks(n=3)) +
+        facet_grid(weight~omega,labeller=label_bquote(cols=omega[0]*'='*.(omega),rows=p[0]*'='*.(weight)))
+
+    cdf.plot +
+        theme(panel.spacing=unit(0,"lines"),
+              panel.background=element_blank(),
+              strip.background=element_blank(),
+              legend.title=element_blank(),
+              legend.text.align=0,
+              legend.key=element_rect(fill="transparent"),
+              legend.position=c(.84,.8),
+              legend.key.width=unit(2.8,"line"),
+              axis.line=element_line(colour="black"),
+              text=element_text(size=16),
+              panel.border = element_rect(colour = "black", fill=NA, size=1))
+@
+  \caption[]{CDFs of LR (C=0) and modified LR (C=2) statistics under M1a/M2a nested model pairs for six simulation settings.  For each simulation setting, 10,000 sequence alignments were generated with two site classes, $\omega<1$ and $\omega=1$ using a balanced, 32-taxon tree topology with branch lengths summing to 6.  The value of $\omega_0$ and its weight, $p_0$, used to generate the data are shown as column and row labels.  CDFs for $\chi^2_0/2 + \chi^2_1/2$ are also included.}
+  \label{fig:CDF32taxaTL6}
+\end{figure}
+
+\clearpage
+
+\begin{figure}[H]
+    \centering
+    <<w0MLEsM1a, echo=F,warning=F>>=
+    p0_0.25_w0_0.25_m1a_mles <- read.csv("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.25_w0_0.25_m1a_mles.csv",header=F)
+    colnames(p0_0.25_w0_0.25_m1a_mles) <- c('k','p0','p1','w0','w1')
+    p0_0.25_w0_0.5_m1a_mles <- read.csv("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.25_w0_0.5_m1a_mles.csv",header=F)
+    colnames(p0_0.25_w0_0.5_m1a_mles) <- c('k','p0','p1','w0','w1')
+    p0_0.5_w0_0.25_m1a_mles <- read.csv("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.5_w0_0.25_m1a_mles.csv",header=F)
+    colnames(p0_0.5_w0_0.25_m1a_mles) <- c('k','p0','p1','w0','w1')
+    p0_0.5_w0_0.5_m1a_mles <- read.csv("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.5_w0_0.5_m1a_mles.csv",header=F)
+    colnames(p0_0.5_w0_0.5_m1a_mles) <- c('k','p0','p1','w0','w1')
+    p0_0.75_w0_0.25_m1a_mles <- read.csv("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.75_w0_0.25_m1a_mles.csv",header=F)
+    colnames(p0_0.75_w0_0.25_m1a_mles) <- c('k','p0','p1','w0','w1')
+    p0_0.75_w0_0.5_m1a_mles <- read.csv("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.75_w0_0.5_m1a_mles.csv",header=F)
+    colnames(p0_0.75_w0_0.5_m1a_mles) <- c('k','p0','p1','w0','w1')
+
+    w0 <- c(p0_0.25_w0_0.25_m1a_mles$w0,p0_0.25_w0_0.5_m1a_mles$w0,
+                  p0_0.5_w0_0.25_m1a_mles$w0,p0_0.5_w0_0.5_m1a_mles$w0,
+                  p0_0.75_w0_0.25_m1a_mles$w0,p0_0.75_w0_0.5_m1a_mles$w0)
+
+    N <- nrow(p0_0.25_w0_0.25_m1a_mles)
+
+    mle.data <- data.frame(w0,
+                           weight=rep(c(0.25,0.5,0.75),each=2*N),
+                           omega=rep(c(0.25,0.5),each=N,times=3))
+
+    cdf.plot <- ggplot(mle.data,aes(w0,y=..ncount..)) +
+        geom_histogram(binwidth=.005,fill=I('black')) +
+        labs(x=expression(omega[0]),y='') +
+facet_grid(weight~omega,labeller=label_bquote(cols=omega[0]*'='*.(omega),rows=p[0]*'='*.(weight)))
+
+    cdf.plot +
+        theme(panel.spacing=unit(2,"lines"),
+              panel.background=element_blank(),
+              strip.background=element_blank(),
+              text=element_text(size=16),
+              axis.text.y=element_blank(),
+              axis.ticks.y=element_blank())
+@
+\caption[]{MLEs of the $\omega_0$ parameter under model M1a for six simulation settings.  For each simulation setting, 10,000 sequence alignments were generated with two site classes, $\omega<1$ and $\omega=1$ using a 5-taxon tree topology with branch lengths summing to 3.  The value of $\omega_0$ and its weight, $p_0$, used to simulate the data are shown as column and row labels.}
+  \label{fig:w0MLEsM1a}
+\end{figure}
+
+\clearpage
+
+\begin{figure}[H]
+    \centering
+    <<CDF5taxaPS, echo=F,warning=F>>=
+    p0_0.25_w0_0.5_5_taxa_m0_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.25_w0_0.5_m0_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_5_taxa_m1a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.25_w0_0.5_m1a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_5_taxa_m2a_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.25_w0_0.5_m2a_lnLs.csv",sep=',')
+    p0_0.25_w0_0.5_5_taxa_c2_lnl <- scan("~/scm/modl.git/sim/null/5_taxa_bl_3/data/p0_0.25_w0_0.5_c2_lnLs.csv",sep=',')
+
+    lrt0 <- 2*(p0_0.25_w0_0.5_5_taxa_m1a_lnl-p0_0.25_w0_0.5_5_taxa_m0_lnl)
+    lrt1 <- 2*(p0_0.25_w0_0.5_5_taxa_m2a_lnl-p0_0.25_w0_0.5_5_taxa_m1a_lnl)
+    lrt2 <- 2*(p0_0.25_w0_0.5_5_taxa_c2_lnl-p0_0.25_w0_0.5_5_taxa_m1a_lnl)
+    rej <- which(lrt0>=qchisq(.9,1))
+
+    lrt0 <- sort(2*(p0_0.25_w0_0.5_5_taxa_m1a_lnl[rej]-p0_0.25_w0_0.5_5_taxa_m0_lnl[rej]))
+    lrt1 <- sort(2*(p0_0.25_w0_0.5_5_taxa_m2a_lnl[rej]-p0_0.25_w0_0.5_5_taxa_m1a_lnl[rej]))
+    lrt2 <- sort(2*(p0_0.25_w0_0.5_5_taxa_c2_lnl[rej]-p0_0.25_w0_0.5_5_taxa_m1a_lnl[rej]))
+
+    N <- length(lrt0)
+    x <- seq(0,6.3,length.out=N)
+
+    lrs <- c(x,lrt1,lrt2)
+
+    prob.t <- 1/2+pchisq(x,1)/2
+    cprob <- c(prob.t,1:N/N,1:N/N)
+
+    cdf.data <- data.frame(lrs,cprob,model=rep(c('Theory','M2a (C=0)','M2a (C=2)'),each=N))
+
+    cdf.plot <- ggplot(cdf.data,aes(lrs,cprob)) +
+        coord_cartesian(xlim=c(0,6), ylim=c(0.5,1)) +
+        labs(x="Likelihood Ratio Statistic",y=expression("P(X"<="x)")) +
+        geom_line(aes(linetype=model),size=.5) +
+        scale_linetype_manual(values=c("dashed","dotted","solid"),labels=c('M2a (C=0)','M2a (C=2)',expression(chi[0]^2/2 + chi[1]^2/2))) +
+        scale_y_continuous(breaks=scales::pretty_breaks(n=3))
+
+    cdf.plot +
+        theme(panel.spacing=unit(0,"lines"),
+              panel.background=element_blank(),
+              strip.background=element_blank(),
+              legend.title=element_blank(),
+              legend.text.align=0,
+              legend.key=element_rect(fill="transparent"),
+              legend.position=c(.80,.7),
+              legend.key.width=unit(2.8,"line"),
+              axis.line=element_line(colour="black"),
+              text=element_text(size=16),
+              panel.border = element_rect(colour = "black", fill=NA, size=1))
+@
+  \caption[]{Cumulative distribution functions (CDF) of likelihood ratio (LR) statistics without (C=0) and with (C=2) likelihood modification after pre-screening the data with M0/M1a LR tests.  The modified LR statistics were calculated under the nested model pair M1a/M2a for 4987 simulated sequence alignments that were rejected under the M0/M1a null hypothesis of only one $\omega$ site class.  The alignments were simulated with 25\% of the sites evolving under $\omega=0.5$ and the remaining sites evolving under $\omega=1$ using a 5-taxon tree topology with branch lengths summing to 3.  A modified likelihood tuning parameters of $C=2$ was used.  A $\chi^2_0/2+\chi^2_1/2$ CDF is also included.}
+  \label{fig:CDFPS}
+\end{figure}
+
+\clearpage
+
+\begin{figure}[H]
+  \centering
+<<klp0.75w0.5, echo=F>>=
+site.lik.truth <- read.csv("~/scm/modl.git/sim/null/5_taxa_bl_3_10000_codons/data/sim_p0_0.75_w0_0.5/site_lik_truth.csv",header=F)
+colnames(site.lik.truth) <- c('cnt','lik')
+n <- sum(site.lik.truth$cnt)
+cnt <- site.lik.truth$cnt
+y.truth <- site.lik.truth$lik
+y.truth[y.truth==0] <- 1e-12
+kl <- numeric(0)
+vkl <- numeric(0)
+for (p in seq(0,1,.1)) {
+    for (w in seq(0,1,.1)) {
+        site.lik <- read.csv(paste("~/scm/modl.git/sim/null/5_taxa_bl_3_10000_codons/data/sim_p0_0.75_w0_0.5/site_like_p_",p,"_w_",w,".csv",sep=''),header=F)
+        y <- site.lik[,2]
+        y[y==0] <- 1e-12
+        y.bar <- sum(cnt*log(y.truth / y))/n
+        kl <- c(kl,y.bar)
+        vkl <- c(vkl,sum(cnt*(log(y.truth / y) - y.bar)^2)/n)
+    }
+}
+p <- rep(seq(0,1,.1),each=11)
+w <- rep(seq(0,1,.1),times=11)
+lb <- kl - 2*sqrt(vkl/10000)
+ub <- kl + 2*sqrt(vkl/10000)
+kl.data <- data.frame(kl,lb,ub,w,p)
+kl.plot <- ggplot(kl.data,aes(p,kl)) +
+    labs(x=expression("p"[0]),y="Kullback-Leibler Divergence") +
+    geom_point() +
+    geom_hline(yintercept=0) + facet_wrap(~w,ncol=3,labeller=label_bquote(cols=omega[0]*'='*.(w))) +
+    coord_cartesian(ylim = c(-0.001, 0.01)) +
+    geom_errorbar(aes(ymin=lb,ymax=ub))
+
+kl.plot + theme(panel.spacing=unit(0,"lines"),
+                panel.background=element_blank(),
+                strip.background=element_blank(),
+                legend.title=element_blank(),
+                legend.key=element_rect(fill="transparent"),
+                text=element_text(size=12),
+                panel.border = element_rect(colour = "black", fill=NA, size=1))
+@
+\caption[]{Approximations of the Kullback-Leibler divergences between the distributions of site likelihoods for the generating model and other mixing distributions.  The approximations were obtained as the mean lnL difference between 10,000 site patterns generated under model M1a using a 5-taxon tree with branch lengths summing to 3 and the mixing distribution $(p_0,\omega_0)=(0.75,0.5)$, and other mixing distributions with varying weights on values of $\omega$ ranging from $0$ to $1$.  Error bars for two standard errors $(s_{KL}/\sqrt{10000})$ above and below each Kullback-Leibler estimate are included.  Points missing from each plot are above the visible range.}
+\label{fig:KLp0.75w0.5}
+\end{figure}
 
 \chapter{Smoothed Bootstrap Aggregation}
 \section{Introduction}
