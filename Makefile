@@ -2,7 +2,7 @@ DOC=thesis
 R_OPTS=--no-save --no-restore --no-init-file --no-site-file
 
 display! ${DOC}.pdf
-	pv ${>} &
+	#pv ${>} &
 
 ${DOC}.pdf: ${DOC}.Rnw
 	R ${R_OPTS} -e "library(knitr);knit('${>}')"
