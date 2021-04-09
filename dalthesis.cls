@@ -322,31 +322,31 @@
    {-3.25ex\@plus -1ex \@minus -.2ex}%
    {1.5ex \@plus .2ex}%
    {\normalfont\bfseries\raggedright}}
-\long\def\@caption#1[#2]#3{%
-  \par
-  \edef\test{\csname ext@#1\endcsname}%
-  \def\@tempa{lof}%
-  \def\@tempb{lot}%
-  \ifx\test\@tempa%
-     \addcontentsline{lof}{#1}%
-       {\protect\numberline{\figurename\space\thefigure}%
-        {\ignorespaces #2}}%
-  \else\ifx\test\@tempb%
-     \addcontentsline{lot}{#1}%
-       {\protect\numberline{\tablename\space\thetable}%
-        {\ignorespaces #2}}%
-  \else%
-     \addcontentsline{\csname ext@#1\endcsname}{#1}%
-       {\protect\numberline{\csname the#1\endcsname}{\ignorespaces #2}}%
-  \fi\fi%
-  \begingroup
-    \@parboxrestore
-    \if@minipage
-      \@setminipage
-    \fi
-    \normalsize
-    \@makecaption{\csname fnum@#1\endcsname}{\ignorespaces #3}\par
-  \endgroup}
+% \long\def\@caption#1[#2]#3{%
+%   \par
+%   \edef\test{\csname ext@#1\endcsname}%
+%   \def\@tempa{lof}%
+%   \def\@tempb{lot}%
+%   \ifx\test\@tempa%
+%      \addcontentsline{lof}{#1}%
+%        {\protect\numberline{\figurename\space\thefigure}%
+%         {\ignorespaces #2}}%
+%   \else\ifx\test\@tempb%
+%      \addcontentsline{lot}{#1}%
+%        {\protect\numberline{\tablename\space\thetable}%
+%         {\ignorespaces #2}}%
+%   \else%
+%      \addcontentsline{\csname ext@#1\endcsname}{#1}%
+%        {\protect\numberline{\csname the#1\endcsname}{\ignorespaces #2}}%
+%   \fi\fi%
+%   \begingroup
+%     \@parboxrestore
+%     \if@minipage
+%       \@setminipage
+%     \fi
+%     \normalsize
+%     \@makecaption{\csname fnum@#1\endcsname}{\ignorespaces #3}\par
+%   \endgroup}
 \renewcommand*\l@figure{\vspace{3mm}%
    \settowidth\@tempdima{\figurename\ }%
    \addtolength\@tempdima{2.3em}%
