@@ -1,4 +1,7 @@
 %% Dalhousie University Thesis Document Class
+%% Version 1.4 <2017/08/05>, by Peter Selinger
+%%   - Fixed the way list of tables and figures appear in table of
+%%   contents.
 %% Version 1.3 <2015/03/10>, by Vlado Keselj
 %%   - Minor update on the title page wording based on FGS feedback to
 %%     a student
@@ -322,31 +325,31 @@
    {-3.25ex\@plus -1ex \@minus -.2ex}%
    {1.5ex \@plus .2ex}%
    {\normalfont\bfseries\raggedright}}
-% \long\def\@caption#1[#2]#3{%
-%   \par
-%   \edef\test{\csname ext@#1\endcsname}%
-%   \def\@tempa{lof}%
-%   \def\@tempb{lot}%
-%   \ifx\test\@tempa%
-%      \addcontentsline{lof}{#1}%
-%        {\protect\numberline{\figurename\space\thefigure}%
-%         {\ignorespaces #2}}%
-%   \else\ifx\test\@tempb%
-%      \addcontentsline{lot}{#1}%
-%        {\protect\numberline{\tablename\space\thetable}%
-%         {\ignorespaces #2}}%
-%   \else%
-%      \addcontentsline{\csname ext@#1\endcsname}{#1}%
-%        {\protect\numberline{\csname the#1\endcsname}{\ignorespaces #2}}%
-%   \fi\fi%
-%   \begingroup
-%     \@parboxrestore
-%     \if@minipage
-%       \@setminipage
-%     \fi
-%     \normalsize
-%     \@makecaption{\csname fnum@#1\endcsname}{\ignorespaces #3}\par
-%   \endgroup}
+\long\def\@caption#1[#2]#3{%
+  \par
+  \edef\test{\csname ext@#1\endcsname}%
+  \def\@tempa{lof}%
+  \def\@tempb{lot}%
+  \ifx\test\@tempa%
+     \addcontentsline{lof}{#1}%
+       {\protect\numberline{\figurename\space\thefigure}%
+        {\ignorespaces #2}}%
+  \else\ifx\test\@tempb%
+     \addcontentsline{lot}{#1}%
+       {\protect\numberline{\tablename\space\thetable}%
+        {\ignorespaces #2}}%
+  \else%
+     \addcontentsline{\csname ext@#1\endcsname}{#1}%
+       {\protect\numberline{\csname the#1\endcsname}{\ignorespaces #2}}%
+  \fi\fi%
+  \begingroup
+    \@parboxrestore
+    \if@minipage
+      \@setminipage
+    \fi
+    \normalsize
+    \@makecaption{\csname fnum@#1\endcsname}{\ignorespaces #3}\par
+  \endgroup}
 \renewcommand*\l@figure{\vspace{3mm}%
    \settowidth\@tempdima{\figurename\ }%
    \addtolength\@tempdima{2.3em}%
@@ -1102,14 +1105,14 @@
    \fi
    \ifdal@tables@page
       \listoftables
-      \addcontentsline{toc}{chapter}{\listtablename}
       \clearpage
+      \addtocontents{lot}{\protect\addcontentsline{toc}{chapter}{\listtablename}}
       \addtocontents{lot}{\protect\baselineskip=0.7\protect\baselineskip}
    \fi
    \ifdal@figures@page
       \listoffigures
-      \addcontentsline{toc}{chapter}{\listfigurename}
       \clearpage
+      \addtocontents{lof}{\protect\addcontentsline{toc}{chapter}{\listfigurename}}
       \addtocontents{lof}{\protect\baselineskip=0.7\protect\baselineskip}
    \fi
    }
