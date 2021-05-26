@@ -115,7 +115,7 @@ The genetic code refers to the mapping of codons to amino acids during protein s
 With four possible nucleotides in each of the three positions in a codon, there are $4^3=64$ different codons.  Of these $64$ codons, the $61$ codons that code for amino acids are referred to as sense codons.  There are 20 different amino acids commonly found in proteins, thus the genetic code is redundant.  This means that most amino acids are encoded by multiple codons.  In the standard code, only tryptophan and methionine are encoded by single codons.  Because of this redundancy, a nucleotide substitution within a codon can either result in a change in the amino acid product (nonsynonymous substitution) or no change in the amino acid (synonymous substitution).
 
 \section{Mutations are the Source of All Genetic Variation and the Starting Point for Evolution}
-It is generally rare for errors to occur in genes, however when errors called mutations do occur, they provide the source of all genetic variation and the starting point for evolution.  When a new version of a gene called an allele is introduced into a population via mutation, it may, on average, affect the fitness of individuals to pass on their genetic information.  Purifying selection will act to reduce the frequency of the new allele if it reduces average fitness relative to other alleles.  Conversely, positive selection will act to increase the frequency of the new allele if it confers fitness advantages.  If the frequency of the new allele becomes $1$, we say the mutation has been fixed in the population.  If the new allele has no fitness consequences, its fate is left to random genetic drift.
+It is generally rare for errors to occur in genes, however when errors called mutations do occur, they provide the source of all genetic variation and the starting point for evolution.  When a new version of a gene called an allele is introduced into a population via mutation, it may, on average, affect the fitness of individuals to pass on their genetic information.  Purifying selection will act to reduce the frequency of the new allele if it reduces average fitness relative to other alleles.  Conversely, positive selection will act to increase the frequency of the new allele if it confers fitness advantages.  If the frequency of the new allele becomes $1$, we say the mutation has been fixed in the population.  If the new allele has no fitness consequences, its fate is left to random genetic drift.  For the models of evolution considered in this thesis, the sequence data for each taxon is considered representative of the population, i.e., there is assumed to be no genetic variation within a population.
 
 \section{Models of Molecular evolution}
 When two populations evolve from one, their genetic divergence can be measured using a quantity called the pairwise distance, the expected number of nucleotide substitutions per nucleotide site.  Of the different methods to calculate pairwise sequence distance, the proportion of different nucleotides is the simplest.  For example, two sequences that are 100 nucleotides long and have 10 nucleotides that are different are said to have a distance proportion of $p=0.1$.  Using $p$ to estimate the distance will often underestimate the true divergence unless the two sequences are very similar.  This is because common or different nucleotides between two sequences could be the result of multiple changes at nucleotide sites, which would not be accounted for with $p$.  Under a constant evolutionary rate, the pairwise distance will increase linearly, but $p$ will not.
@@ -159,15 +159,52 @@ P(h) = \bordermatrix{~                & T             & C            & A        
 \caption{}
 \label{fig:JC69_Ph}
 \end{figure}
-When $h$ is 0, the current nucleotide state can not change and the transition probability matrix is the identity matrix.  Factoring out the identity matrix, $I$, gives $P(h) = I + Qh + o(h)$.  The Champman-Kolmogorov equation (\ref{eq:ck}), can be used to find Kolmogrov backward equation (\ref{eq:kb}).
+When $h$ is 0, the current nucleotide state can not change and the transition probability matrix is the identity matrix.  Factoring out the identity matrix, $I$, gives
+\begin{equation}
+  \label{eq:Ph}
+  P(h) = I + Qh + o(h).
+\end{equation}
+The Champman-Kolmogorov theorem can be used to find the Kolmogrov backward equation.
 \begin{align}
   P(t+h) &= P(h)P(t) \label{eq:ck} \\
   &= [I + Qh + o(h)]P(t) \nonumber \\
   P(t+h)-P(t) &= QhP(t) + o(h)P(t) \nonumber \\
   [P(t+h)-P(t)]/h &= QP(t) + o(h)P(t)/h \nonumber \\
-  P'(t) &= QP(t)  \label{eq:kb} \hskip 100pt \text{(as $h \rightarrow 0$)}
+  P'(t) &= QP(t)  \label{eq:kb}  \hskip 100pt \text{(as $h \rightarrow 0$)}
 \end{align}
-The transition probability matrix $P(t)$, which defines the probability of transitioning from nucleotide $i$ to $j$ in any time $t>0$ can be obtained by solving the backward Kolmorgorov equation. (see Appendix ...).  The solution for the JC model is shown in figure \ref{fig:JC69_Pmat}.
+The transition probability matrix $P(t)$, which defines the probability of transitioning from nucleotide $i$ to $j$ in any time $t>0$ can be obtained by directly solving the Kolmorgorov backward equation.  A more general solution involves exponentiation of $Qt$.  Using the Chapman-Kolmogorov theorem, the transition probability can be expressed as
+\begin{align*}
+  P_t &= P_{t\frac{n-1}{n}}P_{t\frac{1}{n}} \\
+      &= \left(P_{t\frac{n-2}{n}}P_{t\frac{1}{n}}\right)P_{t\frac{1}{n}} = P_{t\frac{n-2}{n}}\left(P_{t\frac{1}{n}}\right)^2 \\
+      &= \left(P_{t\frac{n-3}{n}}P_{t\frac{1}{n}}\right)\left(P_{t\frac{1}{n}}\right)^2 =  P_{t\frac{n-3}{n}}\left(P_{t\frac{1}{n}}\right)^3 \\
+      &\vdotswithin{ = } \\
+      &= \left(P_{t/n}\right)^n.
+\end{align*}
+When $n$ is large, the time interval $t/n$ is small.  From equation \ref{eq:Ph}, the transition probabilities in this short interval are $P(t) = [I + Qt/n + o(t/n)]^n$.  Using the Taylor series for $e^A$, $e^{Qt} = \sum_{k=0}^{\infty}(Qt)^k/k! = lim_{n \to \infty}[I + Qt/n + o(t/n)]^n$.  Because $t$ is fixed, $o(t/n) = o(1/n)$ and
+\begin{equation}
+  \label{eq:Pt}
+  P(t) = e^{Qt}.
+\end{equation}
+A common approach for solving equation \ref{eq:Pt} is by eigen decomposition.  An $NxN$ matrix, $A$, with $N$ linearly independent eigenvectors can be expressed in its eigen decomposition, $A = B \Lambda B^{-1}$, where $B$ is the $NxN$ matrix whose $i^{th}$ column is the eigenvector $b_i$ of $A$ and $\Lambda$ is the diagonal matrix whose diagonal elements are the corresponding eigenvalues.  Note that $A^2=(B \Lambda B^{-1})(B \Lambda B^{-1}) = B \Lambda (B^{-1}B) \Lambda B^{-1} = B \Lambda^2 B^{-1}$ and in general $A^n = B \Lambda^n B^{-1}$.
+The rate matrix can be expressed in its eigen decomposition as
+\begin{equation}
+  \label{eq:rmed}
+  Q = U \Lambda U^{-1}.
+\end{equation}
+Using the Taylor series for $e^A$ and equation \ref{eq:rmed},
+\begin{equation}
+  \label{eq:PtEig}
+  \begin{split}
+    P(t) &= \sum_{k=0}^{\infty}\frac{(Qt)^k}{k!}\\
+    &= \sum_{k=0}^{\infty}\frac{(U \Lambda U^{-1}t)^k}{k!}\\
+    &= U \left[\sum_{k=0}^{\infty}\frac{(\Lambda t)^k}{k!}\right] U^{-1}\\
+    &= U e^{\Lambda t} U^{-1} \\
+    &= U \text{diag}\{e^{\lambda_1 t}, e^{\lambda_2 t}, \dots , e^{\lambda_c t}\} U^{-1}
+  \end{split}
+\end{equation}
+
+The solution for the JC model is shown in figure \ref{fig:JC69_Pmat}.
+% See page 12 of Yang's book for the diagonalization.
 \begin{figure}[h!]
   \centering
 \[
@@ -189,9 +226,18 @@ P(t) = \bordermatrix{~  & T         & C           & A           & G    \cr
 
 Each row of the transition-probability matrix is a probability distribution, and thus sums to $1$.  When $t=0$ the transition-probability matrix is the identity matrix, i.e., in time $t=0$ the current nucleotide state can not change.  The limiting distribution when $\lim_{t \rightarrow \infty} p_{ij}(t) = \pi_j$ represents the probability that the process is in state $j$ after infinite time.  For the JC model, the limiting probabilities, $\bm{\pi} = (\pi_T,\pi_C,\pi_A,\pi_G)$ are $(1/4,1/4,1/4,1/4)$, i.e., when enough time has passed and so many substitutions have occurred, the probably of observing any nucleotide at a site is equal, regardless what the nucleotide state is at time $t=0$.  When the vector of states, $\bm{\pi}$, satisfies the $\bm{\pi} = \bm{\pi} P(t)$ for all $t \ge 0$, $\bm{\pi}$ is referred to as the stationary distribution.  If a stationary distribution of a Markov process exists, it is unique.  The stationary distribution for the JC model is the limiting distribution, $\bm{\pi} = (\pi_T,\pi_C,\pi_A,\pi_G) = (1/4,1/4,1/4,1/4)$.  Another notable property of the JC model is that time, $t$ and rate, $\lambda$ are present as a product, and thus only distance, $\lambda t$ can be estimated.
 
-The data for models of evolution considered in this thesis, including the JC model, are an alignment of nucleotide sequences and a bifurcating phylogenetic tree.  The DNA or RNA data for the sequence alignment is obtained by first using genetic sequencing technology to determine the order of the nucleotides for the same gene or protein-coding region from a number of homologous taxonomic units (taxa).  Next, the data is formatted and arranged so that the sequence for each taxon is a row in a data matrix, $\bm{X}$.  A goal of the alignment is to optimize for homologous characters, either nucleotides or codons, in the columns of $\bm{X}$.  With short and highly conserved sequences this can be done by hand, but usually software-implemented algorithms \citep[e.g.,][]{altschul1990basic, buchfink2021sensitive} are necessary because different accumulated mutations in each of the sequences, such as deleted or inserted nucleotides, will make the alignment challenging.  For all models considered in this thesis, the aligned data at each site $x_h$, a column in $\bm{X}$, is assumed as an independent observational unit.  As an example figure ? shows portions on alignments from three genes, ...
+The data for models of evolution considered in this thesis, including the JC model, are an alignment of nucleotide sequences and a bifurcating phylogenetic tree.  The DNA or RNA data for the sequence alignment is obtained by first using genetic sequencing technology to determine the order of the nucleotides for the same gene or protein-coding region from a number of homologous taxonomic units (taxa).  Next, the data is formatted and arranged so that the sequence for each taxon is a row in a data matrix, $\bm{X}$.  A goal of the alignment is to arrange homologous characters, either nucleotides or codons, in the columns of $\bm{X}$.  With short and highly conserved sequences this can be done by hand, but usually software-implemented algorithms \citep[e.g.,][]{altschul1990basic, buchfink2021sensitive} are necessary because different accumulated mutations in each of the sequences, such as deleted or inserted nucleotides, will make the alignment challenging.  For all models considered in this thesis, the aligned data at each site $x_h$, a column in $\bm{X}$, is assumed as an independent observational unit.  As an example figure ? shows portions on alignments from three genes, ...
 
-Phylogenetic trees are structures that represent the inferred evolutionary relationships among taxa.  Their two components are nodes and branches.  Nodes represent taxa and branches represent the relationship between the nodes.  Branch lengths are interpreted as genetic distance and when the evolutionary rate is scaled to $1$, time.  Rooted trees have a unique internal node called the root node, which is interpreted as the common ancestor of all other nodes.  When the tree is bifurcating, all other internal nodes have two branches that each connect to a descendant node and a third branch that connects to an ancestral node.  Genetic sequence data is only observed for external nodes, which have just one branch connecting them to their ancestral node.  Unrooted trees do not have a root node and do not define the direction of evolution.
+Phylogenetic trees are structures that represent the inferred evolutionary relationships among taxa.  Their two components are nodes and branches.  Each taxon is represented by a node in the tree and branches represent the relationship between nodes.  The branch lengths often represent the estimated genetic distance between taxa and when the evolutionary rate is scaled to $1$, time.  Rooted trees have a unique internal node called the root node, which is interpreted as the common ancestor of all other nodes.  When the tree is bifurcating, all other internal nodes have two branches that each connect to a descendant node and a third branch that connects to an ancestral node.  Sequence data is only observed for external nodes, which have just one branch connecting them to their ancestral node.  Unrooted trees do not have a root node and do not define the direction of evolution.
+
+\subsection{Maximum Likelihood}
+Maximum Likelihood (ML) is a widely used method of statistical inference that forms the basis of all models discussed in this thesis.  With data $\bm{X} = (x_1,x_2,\dots,x_n)^T$ sampled from a population with a known distribution, the likelihood function, $L(\theta)$, is proportional to the joint density function of the data, but treated as a function of the unknown parameter, $\theta$.  A goal of ML estimation is to determine the parameter value, \(\hat{\theta}\), that maximizes $L(\theta)$, i.e., to determine the parameter value that makes the observed data most probable.  The parameter may be a single value, or a vector of values, $\theta = (\theta_1,\theta_2,\dots,\theta_k)^T$.  The value of $\theta$, $\hat{\theta}$, that maximizes $L(\theta)$ is the maximum likelihood estimate (MLE) of $\theta$.  Some of the desirable properties of estimation by Maximum likelihood include the likelihood principle, consistency, and asymptotic normality. 
+
+% Properties of MLE: transformation invariance, consistency, efficiency (low bound of variance of estimators), convenient distribution of \hat{\theta} ~ AN[\theta, J(hat{\theta}^-1)]
+
+\subsection{Jukes Cantor Example}
+
+
 
 Introduce tree with a diagram to visual a JC example.  Show two versions.. one that is rooted and one that is not.  3 panels (original tree with divergence with 4 or 5 taxa), tree 2 change with rate*time, and third panel is an unrooted version of the tree.  B/C of time-reversibility can show different roots and unrooted tree.
 Independence across sites... iid element is a site pattern
