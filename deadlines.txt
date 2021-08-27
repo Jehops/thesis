@@ -1,6 +1,40 @@
-Aug 20 2021 F: Make sure that you have applied to graduate and have started the process of selecting an external
-Oct 11 2021 M: Submit thesis to internal defence (math & stats requires one)
-Oct 25 2021 M: Approximate date of internal thesis defence
-Nov 1 2021 M: Submit thesis to external
-Dec 6 2021 M: Approximate date of thesis defence
-Dec 17 2021 F: Last day to submit thesis
+Thesis work:
+
+Aug 13, 2021:
+Chapter 1, Introduction: A written draft is complete with the
+exception of some figures.  I expect to submit an updated draft
+to my supervisors this week (by 2021-08-13).
+
+Complete now:
+Chapter 2, A modified likelihood approach to explore and restore
+regularity when testing for positive selection: This Chapter is
+complete and has been reviewed by my supervisors.
+
+Complete now:
+Chapter 3, Smoothed Bootstrap Aggregation: This Chapter is
+complete and has been reviewed by my supervisors.
+
+Aug 20, 2021
+Chapter 4, Exploring Branch-Site Codon Models: More writing is
+needed on this chapter.  I expect to have a final draft to submit
+to my supervisors by August 20th.
+
+Aug 31, 2021
+Chapter 5, Conclusion: This section is ongoing.  I had a meeting
+with my supervisors on August 9th about this chapter and we
+discussed an outline.  It will be complete by the end of August.
+
+Other Deadlines:
+Aug 20, 2021: Dr. Susko and Dr. Bielawski have started the process of selecting an external examiner
+Oct 01, 2021: Reveiew the Dalhousie Thesis Licence Agreement with my Supervisor.
+Oct 11, 2021: Prepare a summary presentation which is not to exceed twenty minutes
+Oct 11, 2021: Submit thesis to internal defence committee (department requires one).
+Oct 25, 2021: Approximate date of internal thesis defence
+Nov 01, 2021: Submit a PDF of the completed thesis to the Senior Thesis Clerk (thesis@dal.ca) [1].
+Nov 01, 2021: Submit the completed thesis to the comittee (but not the external examiner).
+Nov 01, 2021: Submit the original PhD Thesis Submission Form and PhD Examination Information Form with all signatures to the FGS office.
+Nov 01, 2021: Submit a maximum-350-word, MS Word abstract to thesis@dal.ca.
+Nov 15, 2021: Contact the Senior Thesis Clerk to arrange a test run for remote defence participants.
+Dec 01, 2021: Deadline to apply to graduate in May 2022
+Dec 06, 2021: Approximate date of thesis defence
+Dec 17, 2021: Last day to make electronic submission of approved thesis to FGS for those convocating in May without registering for Winter term
