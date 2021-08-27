@@ -23,6 +23,8 @@
 \usepackage{setspace} % for line spacing
 % need subfloat b/c knitr's fig.subcap was built with deprecated subfig package
 % \newcommand{\subfloat}[2][need a sub-caption]{\subcaptionbox{#1}{#2}}
+\usepackage[table]{xcolor}
+\definecolor{lightgray}{gray}{0.9}
 \usepackage{texshade}
 \usepackage[flushleft]{threeparttable} % description under table
 \usepackage{tikz}
@@ -32,6 +34,7 @@
 \titlespacing{\section}{0pt}{6pt}{6pt}
 \titlespacing{\subsection}{0pt}{5pt}{5pt}
 \usepackage{verbatim} % comments
+
 
 \usetikzlibrary{arrows}
 
@@ -73,9 +76,9 @@ Papers describing implementations of the most widely used models of molecular ev
 
 \end{abstract}
 
-\printglossary
-\glossary{name={LR},description={Likelihood Ratio}}
-\glossary{name={SBA},description={Smoothed Bootstrap Aggregation}}
+%\printglossary
+%\glossary{name={LR},description={Likelihood Ratio}}
+%\glossary{name={SBA},description={Smoothed Bootstrap Aggregation}}
 
 %\begin{acknowledgements}
 %Thanks to all the little people who make me look tall.
@@ -176,8 +179,11 @@ The data for models of evolution considered in this thesis are nucleotide sequen
 
 Phylogenetic trees are structures that represent the inferred evolutionary relationships among taxa.  Their two components are nodes and branches.  Each taxon is represented by a node and each evolutionary path between taxa is represented by a branch.  The lengths of a branch usually represents the genetic distance between adjoining taxa.  Rooted trees have a unique internal node called the root node, which is interpreted as the common ancestor of all other nodes.  When the tree is bifurcating, all other internal nodes have two branches that each connect to a descendant node and a third branch that connects to an ancestral node.  Sequence data is only observed for external nodes, which have just one branch connecting them to their ancestor.  Unrooted trees do not have a root node and do not define the direction of evolution.
 
+\input{align.tex}
+
 <<sepiatree,echo=F,warning=F>>=
-sepia.tre <- read.tree(text="(((Sepia_pharaonis:0.451310,Sepia_aculeata:0.534179)1:0.122105,Sepia_lycidas:0.468950)2:0.137016,Sepia_esculenta:0.614842)Root;")
+#sepia.tre <- read.tree(text="(((Sepia_pharaonis:0.451310,Sepia_aculeata:0.534179)1:0.122105,Sepia_lycidas:0.468950)2:0.137016,Sepia_esculenta:0.614842)Root;")
+sepia.tre <- read.tree(text="(((pharaonis:0.32,aculeata:0.534179)1:0.122105,lycidas:0.468950)2:0.137016,esculenta:0.614842)Root;")
 @
 
 \begin{figure}
@@ -185,11 +191,11 @@ sepia.tre <- read.tree(text="(((Sepia_pharaonis:0.451310,Sepia_aculeata:0.534179
   \begin{subfigure}[t]{.49\textwidth}
     \centering
     <<sepiatreerooted,echo=F,warning=F>>=
-    plot(sepia.tre,show.node.label=T,no.margin=T,cex=2)
-    #nodelabels("Root",5,frame='n',adj=c(-.2,.35),cex=2)
-    #nodelabels("1",6,frame='n',adj=c(-.2,.35),cex=2)
-    #nodelabels("2",7,frame='n',adj=c(-.2,.35),cex=2)
-    ##edgelabels(c('x','x','x','2x','2x','2x'),adj=c(0,1),bg='white',cex=1.5,col='black',frame="none")
+    plot(sepia.tre,show.node.label=T,show.tip.label=F,no.margin=T,cex=2)
+    nodelabels("S. esculenta ATGTTA...",4,frame='n',cex=2,adj=c(1,1.3))
+    nodelabels("S. lycidas ATGTTA...",3,frame='n',cex=2,c(0.91,-.4))
+    nodelabels("S. pharaonis ATGTTA...",1,frame='n',cex=2,adj=c(0.6,-.4))
+    nodelabels("S. aculeata ATGCTA...",2,frame='n',cex=2,adj=c(0.91,-.4))
     @
     \caption{Rooted tree}
     \label{sfig:sepiarooted}
@@ -198,17 +204,17 @@ sepia.tre <- read.tree(text="(((Sepia_pharaonis:0.451310,Sepia_aculeata:0.534179
     \centering
     <<sepiatreeunrooted,echo=F,warning=F>>=
     plot(sepia.tre,type='unrooted',show.tip.label=F,show.node.label=F,no.margin=T,cex=2)
-    nodelabels("Sepia esculenta",4,frame='n',cex=2,adj=c(-.05,-.1))
-    nodelabels("Sepia lycidas",3,frame='n',cex=2,adj=c(.7,-.4))
-    nodelabels("Sepia pharaonis",1,frame='n',cex=2,adj=c(.4,1.05))
-    nodelabels("Sepia aculeata",2,frame='n',cex=2,adj=c(1.07,.8))
+    nodelabels("S. esculenta ATGTTA...",4,frame='n',cex=2,adj=c(-.05,-.1))
+    nodelabels("S. lycidas ATGTTA...",3,frame='n',cex=2,adj=c(.7,-.4))
+    nodelabels("S. pharaonis ATGTTA...",1,frame='n',cex=2,adj=c(.4,1.05))
+    nodelabels("S. aculeata ATGCTA...",2,frame='n',cex=2,adj=c(1.1,0.8))
     nodelabels("2",6,frame='n',cex=2,adj=c(.4,-.8))
     nodelabels("1",7,frame='n',cex=2,adj=c(.7,1.6))
     @
     \caption{Unrooted tree}
     \label{sfig:sepiaunrooted}
   \end{subfigure}
-  \caption[]{A rooted tree and its corresponding unrooted tree for four species of cuttlefish.  The rooted tree has 6 branches, 3 internal nodes (labelled Root, 1, and 2) and 4 tip nodes (labelled with the species names).  The unrooted tree has 5 branches, 2 internal nodes (labelled 1 and 2), and 4 tip nodes (labelled with the species names).}
+  \caption[]{A rooted tree and the corresponding unrooted tree for four species of cuttlefish.  The rooted tree has 6 branches, 3 internal nodes (labelled Root, 1, and 2) and 4 tip nodes (labelled with the species names).  The unrooted tree has 5 branches, 2 internal nodes (labelled 1 and 2), and 4 tip nodes (labelled with the species names).}
   \label{fig:sepiatrees}
 \end{figure}
 
