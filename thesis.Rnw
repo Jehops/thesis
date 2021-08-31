@@ -1,4 +1,4 @@
-\documentclass[12pt,glossary]{dalthesis}
+\documentclass[12pt]{dalthesis}
 
 \usepackage{amsmath}
 \usepackage{amsmath}
@@ -9,6 +9,7 @@
 \usepackage{caption,subcaption}
 %\captionsetup{compatibility=false}
 \usepackage{float}
+\usepackage{glossaries}
 \usepackage{graphicx} % obviously for graphics
 % \usepackage{latexsym} % MBE template for some fonts
 \usepackage{lineno} % line numbers
@@ -46,6 +47,15 @@
 
 \renewcommand{\figurename}{Fig.}
 
+\raggedbottom
+
+\makenoidxglossaries
+\setacronymstyle{long-short}
+\newacronym{jc69}{JC69}{Jukes and Cantor model}
+\newacronym{lr}{LR}{likelihood ratio}
+\newacronym{ml}{ML}{maximum likelihood}
+\newacronym{mle}{MLE}{maximum likelihood estimate}
+
 \begin{document}
 
 <<setup,include=F>>=
@@ -76,9 +86,7 @@ Papers describing implementations of the most widely used models of molecular ev
 
 \end{abstract}
 
-%\printglossary
-%\glossary{name={LR},description={Likelihood Ratio}}
-%\glossary{name={SBA},description={Smoothed Bootstrap Aggregation}}
+\printnoidxglossary[title=List of Abbreviations and Symbols Used]
 
 %\begin{acknowledgements}
 %Thanks to all the little people who make me look tall.
@@ -107,7 +115,7 @@ Access to the data that underpins the field, genetic sequence data, became avail
 %Accordingly, we begin this chapter by reviewing relevant genetic and evolutionary topics.  In section ?, we present genetic distance as a statistical problem.  In section
 
 \section{Beyond The Modern Synthesis}
-In the mid-nineteenth century, foundational ideas were described about biological inheritance and the evolution of the heritable characteristics in biological populations.  Darwin presented compelling evidence of adaptive evolution, i.e., heritable traits which increase reproductive success become more common in populations.  Through his experiments with pea plants, Mendel showed that phenotype can be determined by the inheritance of discrete trait units, which we now know are variants of genes called alleles.  It wasn't until a half century later when these ideas were reconciled in what has been referred to as the \emph{Modern Synthesis} (cite huxley's book).  Key to the development of the \emph{Modern Synthesis} was the new field of population genetics.   The development and application of statistical models of evolution to biological population data helped to determine the forces that drive changes in the allele frequencies in biological populations, i.e., evolution: mutation, gene flow, non-random mating, stochastic factors due to finite population size, and adaptive evolution  \citep{fisher1923xxi, fisher1931xvii, haldane1927mathematical, wright1931evolution, wright1942statistical, kimura1957some, kimura1962probability}.  In this thesis, we are primarily concerned with the stochastic forces called random genetic drift and adaptive evolution, and more specifically, we aim to detect evidence of adaptive evolution in a background of random genetic drift.
+In the mid-nineteenth century, foundational ideas were described about biological inheritance and the evolution of the heritable characteristics in biological populations.  Darwin presented compelling evidence of adaptive evolution, i.e., heritable traits which increase reproductive success become more common in populations.  Through his experiments with pea plants, Mendel showed that phenotype can be determined by the inheritance of discrete trait units, which we now know are variants of genes called alleles.  It wasn't until a half century later when these ideas were reconciled in what has been referred to as the \emph{Modern Synthesis} (cite huxley's book).  Key to the development of the \emph{Modern Synthesis} was the new field of population genetics.   The development and application of statistical models of evolution to biological population data helped to determine the forces that drive changes in the allele frequencies in biological populations, i.e., evolution: mutation, gene flow, non-random mating, stochastic factors due to finite population size, and adaptive evolution  \citep{fisher1923xxi, fisher1931xvii, haldane1927mathematical, wright1931evolution, wright1942statistical, kimura1957some, kimura1962probability}.  In this thesis, we are primarily concerned with the stochastic forces called random genetic drift and adaptive evolution.  More specifically, we aim to detect evidence of adaptive evolution in a background of random genetic drift.
 
 \section{A Brief Introduction to Molecular Evolution}
 
@@ -126,7 +134,7 @@ The genetic code refers to the mapping of codons to amino acids during protein s
 
 % \subsection{Mutations: The Source of All Genetic Variation and a Prerequisite for Evolution}
 \subsection{Mutation, Fixation, and Selection}
-Suppose all individuals in a population carry the same version of a gene, wild-type allele \emph{A}.  It is generally rare for errors called mutations to occur in genes \citep{nachman2000estimate}, however when heritable mutations do occur, they provide the ultimate source of variation for evolution.  Suppose a mutation occurs in one individual in the population introducing mutant allele \emph{a}.  Such a mutation could arise in different forms such as insertions, deletions, or substitutions of single nucleotides to whole chromosomes.  However, for the models discussed here, only single-nucleotide changes are considered such as the one shown in figure \ref{tab:bglobin} where a nucleotide substitution changes codon GAG in wild-type allele \emph{A} to GTC to create mutant allele \emph{a}.  Because GAG and GTC encode different amino acids, Glutamate and Valine in the universal genetic code, such a nucleotide substitution will cause a change in the protein.
+Suppose all individuals in a population carry the same version of a gene, wild-type allele \emph{A}, when a heritable error occurs in the gene of one individual introducing mutant allele \emph{a} into the population.  It is generally rare for errors called mutations to occur in genes \citep{nachman2000estimate}, however when heritable mutations do occur, they provide the ultimate source of variation for evolution.  Mutations occur in different forms such as insertions, deletions, or substitutions of single nucleotides to whole chromosomes.  However, for the models discussed here, only single-nucleotide changes are considered such as the one shown in figure \ref{tab:bglobin} where a nucleotide substitution changes codon GAG in wild-type allele \emph{A} to GTC to create mutant allele \emph{a}.  Because GAG and GTC encode different amino acids, Glutamate and Valine in the universal genetic code, such a nucleotide substitution will cause a change in the protein.
 \input{./beta_globin.tex}
 
 In the absence of mechanisms that direct evolution such as selection, the allele composition of the next generations can be considered the result of random sampling of alleles from the current generation.  Thus, whether the frequency of mutant allele \emph{a} in the population eventually goes to $0$ (elimination) or to $1$ (fixation) is determined by random genetic drift, i.e., chance.  Selection is one mechanism of evolution that causes sampling of alleles for subsequent generations to be non-random.  For example, when individuals carrying mutant allele \emph{a} have reduced fitness to pass on the allele, relative to carriers of \emph{A}, purifying selection acts to reduce the frequency of \emph{a} in the population.  When individuals carrying \emph{a} have increased fitness, positive selection makes fixation of \emph{a} more probable.
@@ -175,114 +183,110 @@ The time between the occurrence of a new mutation and its fixation can vary, but
 
 \subsection{The Data}
 
-The data for models of evolution considered in this thesis are nucleotide sequences from protein coding genes and a bifurcating phylogenetic tree.  The order of the nucleotides for some number of homologous taxonomic units (taxa) are either obtained directly using genetic sequencing technology or indirectly from a genetic database such as GenBank \citep{benson2012genbank}.  The sequence data must be formatted and arranged so that the sequence for each taxon is a row in a data matrix, $\bm{X}$.  A goal of the alignment is to arrange homologous characters, either nucleotides or codons, in the columns of $\bm{X}$.  With short and highly conserved sequences this is a straightforward task, but typically software implementations of alignment algorithms \citep[e.g.,][]{altschul1990basic, buchfink2021sensitive} are necessary because different accumulated mutations in each of the sequences, such as deleted or inserted nucleotides, make the alignment challenging.  For all models considered in this thesis, the aligned data at each site $x_h$, a column in $\bm{X}$, is assumed as an independent observational unit.  {\color{red} As an example figure ? shows portions on alignments from three genes, ...}
+The data for models of evolution considered in this thesis are nucleotide sequences from protein coding genes and a bifurcating phylogenetic tree.  The order of the nucleotides for some number of homologous taxonomic units (taxa) are either obtained directly using genetic sequencing technology or indirectly from a genetic database such as GenBank \citep{benson2012genbank}.  The sequence data must be formatted and arranged so that the sequence for each taxon is a row in a data matrix, $\bm{X}$.  A goal of the alignment is to arrange homologous characters, either nucleotides or codons, in the columns of $\bm{X}$.  With short and highly conserved sequences this is a straightforward task, but typically software implementations of alignment algorithms \citep[e.g.,][]{altschul1990basic, buchfink2021sensitive} are necessary because different accumulated mutations in each of the sequences, such as deleted or inserted nucleotides, make the alignment challenging.  For all models considered in this thesis, the aligned data at each site $x_h$, a column in $\bm{X}$, is assumed as an independent observational unit.  An example four-taxon alignment is shown in table \ref{tab:sampalign}.
 
-Phylogenetic trees are structures that represent the inferred evolutionary relationships among taxa.  Their two components are nodes and branches.  Each taxon is represented by a node and each evolutionary path between taxa is represented by a branch.  The lengths of a branch usually represents the genetic distance between adjoining taxa.  Rooted trees have a unique internal node called the root node, which is interpreted as the common ancestor of all other nodes.  When the tree is bifurcating, all other internal nodes have two branches that each connect to a descendant node and a third branch that connects to an ancestral node.  Sequence data is only observed for external nodes, which have just one branch connecting them to their ancestor.  Unrooted trees do not have a root node and do not define the direction of evolution.
+Phylogenetic trees, such as those shown in figure \ref{fig:sampletrees}, are structures that represent the inferred evolutionary relationships among taxa.  Their two components are nodes and branches.  Each taxon is represented by a node (labelled $1$ through $6$ and Root in figure \ref{fig:sampletrees}) and each evolutionary path between taxa is represented by a branch.  The branch lengths typically represent the genetic distance between adjoining taxa.  Rooted trees have a unique internal node called the root node, which is interpreted as the common ancestor of all other nodes.  When the tree is bifurcating, all other internal nodes have two branches that each connect to a descendant node and a third branch that connects to an ancestral node.  Sequence data is only observed for external nodes (also referred to as tip or leaf nodes), which have just one branch connecting them to their ancestor.  Unrooted trees do not have a root node and do not define the direction of evolution.
 
 \input{align.tex}
 
 <<sepiatree,echo=F,warning=F>>=
 #sepia.tre <- read.tree(text="(((Sepia_pharaonis:0.451310,Sepia_aculeata:0.534179)1:0.122105,Sepia_lycidas:0.468950)2:0.137016,Sepia_esculenta:0.614842)Root;")
-sepia.tre <- read.tree(text="(((pharaonis:0.32,aculeata:0.534179)1:0.122105,lycidas:0.468950)2:0.137016,esculenta:0.614842)Root;")
+example.tre <- read.tree(text="(((1:0.32,2:0.53)5:0.12,3:0.47)6:0.14,4:0.61)Root;")
 @
 
-\begin{figure}
+\begin{figure}[h]
   \centering
   \begin{subfigure}[t]{.49\textwidth}
     \centering
     <<sepiatreerooted,echo=F,warning=F>>=
-    plot(sepia.tre,show.node.label=T,show.tip.label=F,no.margin=T,cex=2)
-    nodelabels("S. esculenta ATGTTA...",4,frame='n',cex=2,adj=c(1,1.3))
-    nodelabels("S. lycidas ATGTTA...",3,frame='n',cex=2,c(0.91,-.4))
-    nodelabels("S. pharaonis ATGTTA...",1,frame='n',cex=2,adj=c(0.6,-.4))
-    nodelabels("S. aculeata ATGCTA...",2,frame='n',cex=2,adj=c(0.91,-.4))
+    plot(example.tre,show.node.label=T,show.tip.label=F,no.margin=T,cex=2)
+    nodelabels("1 ATGTTA...",1,frame='n',cex=2,adj=c(1,-.4))
+    nodelabels("2 ATGTTA...",2,frame='n',cex=2,c(1,-.4))
+    nodelabels("3 ATGCTA...",3,frame='n',cex=2,adj=c(1,-.4))
+    nodelabels("4 ATGTTA...",4,frame='n',cex=2,adj=c(1,1.4))
     @
     \caption{Rooted tree}
-    \label{sfig:sepiarooted}
+    \label{sfig:samptreerooted}
   \end{subfigure}
   \begin{subfigure}[t]{.49\textwidth}
     \centering
     <<sepiatreeunrooted,echo=F,warning=F>>=
-    plot(sepia.tre,type='unrooted',show.tip.label=F,show.node.label=F,no.margin=T,cex=2)
-    nodelabels("S. esculenta ATGTTA...",4,frame='n',cex=2,adj=c(-.05,-.1))
-    nodelabels("S. lycidas ATGTTA...",3,frame='n',cex=2,adj=c(.7,-.4))
-    nodelabels("S. pharaonis ATGTTA...",1,frame='n',cex=2,adj=c(.4,1.05))
-    nodelabels("S. aculeata ATGCTA...",2,frame='n',cex=2,adj=c(1.1,0.8))
-    nodelabels("2",6,frame='n',cex=2,adj=c(.4,-.8))
-    nodelabels("1",7,frame='n',cex=2,adj=c(.7,1.6))
+    plot(example.tre,type='unrooted',show.tip.label=F,show.node.label=F,no.margin=T,cex=2)
+    nodelabels("1 ATGTTA...",1,frame='n',cex=2,adj=c(.9,1.05))
+    nodelabels("2 ATGTTA...",2,frame='n',cex=2,adj=c(1.1,0.8))
+    nodelabels("3 ATGCTA...",3,frame='n',cex=2,adj=c(.7,-.4))
+    nodelabels("4 ATGTTA...",4,frame='n',cex=2,adj=c(-.05,-.1))
+    nodelabels("6",6,frame='n',cex=2,adj=c(.4,-.8))
+    nodelabels("5",7,frame='n',cex=2,adj=c(.7,1.6))
     @
     \caption{Unrooted tree}
-    \label{sfig:sepiaunrooted}
+    \label{sfig:sampletreeunrooted}
   \end{subfigure}
-  \caption[]{A rooted tree and the corresponding unrooted tree for four species of cuttlefish.  The rooted tree has 6 branches, 3 internal nodes (labelled Root, 1, and 2) and 4 tip nodes (labelled with the species names).  The unrooted tree has 5 branches, 2 internal nodes (labelled 1 and 2), and 4 tip nodes (labelled with the species names).}
-  \label{fig:sepiatrees}
+  \caption[]{A four-taxon, rooted tree and the corresponding unrooted tree.  The rooted tree has 6 branches, 3 internal nodes (labelled 5, 6, and Root) and 4 tip nodes (labelled 1, 2, 3, and 4).  The unrooted tree has 5 branches, 2 internal nodes (labelled 5 and 6), and the same four 4 tip nodes as the rooted tree.  The first two codons of the sequence data for the taxa at the tip nodes is shown adjacent to the taxon label.}
+  \label{fig:sampletrees}
 \end{figure}
 
 \subsection{Genetic Divergence}
-A simple measure of the evolution between homologous genes is the genetic divergence, which can be measured using a quantity called the pairwise distance, the expected number of nucleotide substitutions per nucleotide site.  Of the different methods to calculate pairwise sequence distance, the proportion of different nucleotides is the simplest.  For example, two sequences that are 100 nucleotides long and have 10 nucleotides that are different are said to have a distance proportion of $p=0.1$.  Using $p$ to estimate the distance will often underestimate the true divergence unless the two sequences are very similar.  This is because common or different nucleotides between two sequences could be the result of multiple changes at nucleotide sites, which would not be accounted for with $p$.  Under a constant evolutionary rate, the pairwise distance will increase linearly, but $p$ will not.
+Genetic divergence is a simple measure of evolution between homologous genes.  It can be calculated using a quantity called the pairwise distance, the expected number of nucleotide substitutions per nucleotide site.  Of the different methods to calculate pairwise sequence distance, the proportion of different nucleotides is the simplest.  For example, two sequences that are 100 nucleotides long and have 10 nucleotides that are different are said to have a distance proportion of $p=0.1$.  Using $p$ to estimate the distance will often underestimate the true divergence unless the two sequences are very similar.  This is because common or different nucleotides between two sequences could be the result of multiple changes at nucleotide sites, which would not be accounted for with $p$.  Under a constant evolutionary rate, the pairwise distance will increase linearly, but $p$ will not.
 
 \subsection{Modelling Substitution as a Markov Process}
 A stochastic process is a collection of random variables that are indexed by a set $T$, which often represents time.   If $X(t)=i$, the process $X$ is said to be in state $i$ at time $t$.  For the values $i$ and $j$ from some finite set of states, all $t \ge 0$, and all $s \ge 0$, if
 \begin{equation}
-  P[X(t+s) = j | X(s)=i, X(u) = x(u), 0 \le u < s]  = P[X(t+s) = j | X(s)=i] = p_{ij}(t)
+  P[X(t+s) = j | X(s)=i, X(u) = x(u), 0 \le u < s]  = P[X(t+s) = j | X(s)=i]
   \label{eq:Markov}
 \end{equation}
-holds, then the stochastic process is referred to as a continuous-time Markov process and (\ref{eq:Markov}) is referred to as the Markov property, i.e., the conditional distribution of future states given present and past states depends only on the present state.  Markov processes are well suited for divergence estimation, because the transition probabilities, $p_{ij}$, satisfy the Chapman-Kolmogorov theorem,
+holds, then the stochastic process is a continuous-time Markov process and equation (\ref{eq:Markov}) is referred to as the Markov property, i.e., the conditional distribution of future states given present and past states depends only on the present state.  If equation (\ref{eq:Markov}) is independent of $s$, the Markov process is said to be time-homogeneous and the probability of transitioning from state $i$ to $j$ in time $t$ can be expressed as $p_{ij}(t)$.
+% Another property of Markov processes that is usually satisfied when modelling molecular evolution is time-homogeneity.
+Markov processes are well suited for divergence estimation, because the transition probabilities satisfy the Chapman-Kolmogorov theorem,
 \begin{equation}
   p_{ij}(t_1 + t_2) = \sum_kp_{ik}(t_1)p_{kj}(t_2).
   \label{eq:Chapman-Kolmogorov}
 \end{equation}
-This means the probability of transitioning from state $i$ to state $j$ in time $t_1+t_2$ is equal to the probably of first transitioning to any intermediate state in time $t_1$ before transitioning to state $j$ in time $t_2$.  Thus, unlike using the proportion of different nucleotides, using a Markov process to estimate genetic divergenc accounts for unobserved nucleotide transitions.  Another property of Markov processes that is usually satisfied when modelling molecular evolution is time-homogeneity.  If (\ref{eq:Markov}) is independent of $s$, the Markov process is referred to as time-homogeneous.
+This means the probability of transitioning from state $i$ to state $j$ in time $t_1+t_2$ is equal to the probably of first transitioning to any intermediate state in time $t_1$ before transitioning to state $j$ in time $t_2$.  Thus, unlike using the proportion of different nucleotides, using a Markov process to estimate genetic divergenc accounts for unobserved nucleotide transitions.  
 
-The Jukes and Cantor (JC69) model of evolution \citep{JukesCantor1969} uses a continuous time Markov process to estimate genetic distance between DNA sequences and model nucleotide substitution.  The model is useful for understanding properties that are shared with other models of molecular evolution, including more sophisticated models that will be presented later.    It assumes that any nucleotide, $i$, has the same instantaneous rate, $\lambda$, of transitioning to any other nucleotide state, $j$.  These rates can be arranged in a matrix as shown in figure \ref{fig:JC69_Qmat}.
-\begin{figure}[h!]
-  \centering
-\[
+The JC69 model uses a continuous time Markov process to model nucleotide substitution. \citep{JukesCantor1969}.  The model is useful for understanding properties that are shared with other models of molecular evolution, including more sophisticated models that will be presented later.    It assumes that any nucleotide, $i$, has the same instantaneous rate, $\lambda$, of transitioning to any other nucleotide state, $j$.  The rate matrix for the JC69 model is
+\begin{equation}
 Q = \{q_{ij}\} = \bordermatrix{~      & T          & C         & A          & G        \cr
                                     T & -3\lambda  & \lambda   & \lambda   & \lambda   \cr
                                     C & \lambda    & -3\lambda & \lambda   & \lambda   \cr
                                     A & \lambda    & \lambda   & -3\lambda & \lambda   \cr
-                                    G & \lambda    & \lambda   & \lambda   & -3\lambda \cr}
-\]
-\caption{The rate matrix for the Jukes-Cantor model.}
-\label{fig:JC69_Qmat}
-\end{figure}
-The probability of transitioning between nucleotide states within some small time interval $h$ is $p_{ij}(h) = \lambda h + o(h)$ with $o(h)$ representing some function $g(h)$ such that $g(h)/h \rightarrow 0$ as $h \rightarrow 0$.  The probably of not transitioning is $p_{ii}(h) = 1 - \sum_{j \ne i} p_{ij}(h) = 1 - 3\lambda h + o(h)$, which gives transition probabilities within the small time interval $h$ shown in figure \ref{fig:JC69_Ph}.
-\begin{figure}[h!]
-  \centering
-\[
-P(h) = \bordermatrix{~                & T             & C            & A            & G           \cr
-                                    T & 1-3\lambda h  & \lambda h    & \lambda h    & \lambda h   \cr
-                                    C & \lambda h     & 1-3\lambda h & \lambda h    & \lambda h   \cr
-                                    A & \lambda h     & \lambda h    & 1-3\lambda h & \lambda h   \cr
-                                    G & \lambda h     & \lambda h    & \lambda h    & 1-3\lambda h \cr}
-                                  + o(h)
-\]
-\caption{Transition probabilities over the small time interval $h$ for the Jukes-Cantor model.}
-\label{fig:JC69_Ph}
-\end{figure}
-When $h$ is 0, the current nucleotide state can not change and the transition probability matrix is the identity matrix.  Factoring out the identity matrix, $I$, gives
+                                    G & \lambda    & \lambda   & \lambda   & -3\lambda \cr}.
+%\caption{The rate matrix for the JC69 model.}
+%\label{fig:JC69_Qmat}
+\end{equation}
+The probability of transitioning from nucleotide state $i$ to state $j$ within some small time interval $h$ is $p_{ij}(h) = \lambda h + o(h)$ with $o(h)$ representing some function $g(h)$ such that $g(h)/h \rightarrow 0$ as $h \rightarrow 0$.  The probably of not transitioning away from state $i$ is $p_{ii}(h) = 1 - \sum_{j \ne i} p_{ij}(h) = 1 - 3\lambda h + o(h)$, so the transition probabilities within the small time interval $h$ can be expressed as
 \begin{equation}
   \label{eq:Ph}
-  P(h) = I + Qh + o(h).
+  P(h) = \bordermatrix{~
+    & T               & C            & A            & G           \cr
+    T & 1-3\lambda h  & \lambda h    & \lambda h    & \lambda h   \cr
+    C & \lambda h     & 1-3\lambda h & \lambda h    & \lambda h   \cr
+    A & \lambda h     & \lambda h    & 1-3\lambda h & \lambda h   \cr
+    G & \lambda h     & \lambda h    & \lambda h    & 1-3\lambda h \cr}
+  + o(h) = I + Qh + o(h) \\
 \end{equation}
-The Champman-Kolmogorov theorem can be used to find the Kolmogrov backward equation.
+When $h$ is 0, the current nucleotide state can not change and the transition probability matrix is the identity matrix.
+
+The transition probability matrix $P(t)$, the probability of transitioning from nucleotide $i$ to $j$ in any time $t>0$ can be obtained by directly solving the Kolmorgorov backward equation.
 \begin{align}
-  P(t+h) &= P(h)P(t) \label{eq:ck} \\
-  &= [I + Qh + o(h)]P(t) \nonumber \\
+  P(h+t) &= P(h)P(t) \nonumber \\
+         &= [I + Qh + o(h)]P(t) \nonumber \\
   P(t+h)-P(t) &= QhP(t) + o(h)P(t) \nonumber \\
   [P(t+h)-P(t)]/h &= QP(t) + o(h)P(t)/h \nonumber \\
   P'(t) &= QP(t)  \label{eq:kb}  \hskip 100pt \text{(as $h \rightarrow 0$)}
 \end{align}
-The transition probability matrix $P(t)$, which defines the probability of transitioning from nucleotide $i$ to $j$ in any time $t>0$ can be obtained by directly solving the Kolmorgorov backward equation.  A more general solution involves exponentiation of $Qt$.  Using the Chapman-Kolmogorov theorem, the transition probability can be expressed as
+
+A more general solution involves exponentiation of $Qt$.  Using the Chapman-Kolmogorov theorem, the transition probabilities can be expressed as
 \begin{align*}
   P_t &= P_{t\frac{n-1}{n}}P_{t\frac{1}{n}} \\
       &= \left(P_{t\frac{n-2}{n}}P_{t\frac{1}{n}}\right)P_{t\frac{1}{n}} = P_{t\frac{n-2}{n}}\left(P_{t\frac{1}{n}}\right)^2 \\
       &= \left(P_{t\frac{n-3}{n}}P_{t\frac{1}{n}}\right)\left(P_{t\frac{1}{n}}\right)^2 =  P_{t\frac{n-3}{n}}\left(P_{t\frac{1}{n}}\right)^3 \\
       &\vdotswithin{ = } \\
-      &= \left(P_{t/n}\right)^n.
+      &= \left(P_{t/n}\right)^n,
 \end{align*}
-When $n$ is large, the time interval $t/n$ is small, so from equation \ref{eq:Ph}, the transition probabilities are $P(t) = lim_{n \to \infty}[I + Qt/n + o(t/n)]^n$.  Because $t$ is fixed, $o(t/n) = o(1/n)$, and $P(t)$ can be expressed as $\sum_{k=0}^{\infty}(Qt)^k/k!$, a Taylor series expansion of an exponential and
+where the argument is indicated as a subscript for clarity.
+
+When $n$ is large, the time interval $t/n$ is small, and from equation \ref{eq:Ph}, the transition probabilities are $P(t) = lim_{n \to \infty}[I + Qt/n + o(t/n)]^n$.  Because $t$ is fixed, $o(t/n) = o(1/n)$, and $P(t)$ can be expressed as $\sum_{k=0}^{\infty}(Qt)^k/k!$, a Taylor series expansion of an exponential and
 \begin{equation}
   P(t) = e^{Qt}. \label{eq:Pt}
 \end{equation}
@@ -297,13 +301,9 @@ A common approach for solving equation \ref{eq:Pt} is by eigen decomposition.  A
     &= U \text{diag}\{e^{\lambda_1 t}, e^{\lambda_2 t}, \dots , e^{\lambda_c t}\} U^{-1}
   \end{split}
 \end{equation}
-The solution of $P(t)$ for the JC69 model is shown in figure \ref{fig:JC69_Pmat}.
-
-Most convention models are time reversible definiation and this guarantees the eigen values are real.  It also implies that the probabilites of the data on the tree do not depend on the root.
+The solution of $P(t)$ for the JC69 model is
 % See page 12 of Yang's book for the diagonalization.
-\begin{figure}[h!]
-  \centering
-\[
+\begin{equation}
 P(t) = \bordermatrix{~  & T         & C           & A           & G    \cr
                T & p_{0}(t)  & p_{1}(t)   & p_{1}(t)   & p_{1}(t)  \cr
   C & p_{1}(t)    & p_{0}(t) & p_{1}(t)   & p_{1}(t)  \cr
@@ -314,25 +314,25 @@ P(t) = \bordermatrix{~  & T         & C           & A           & G    \cr
   p_{0}(t) = \frac{1}{4}+\frac{3}{4}e^{-4\lambda t}\\
   p_{1}(t) = \frac{1}{4}-\frac{1}{4}e^{-4\lambda t}
 \end{array} \right.
-\]
-\caption{The transition probability matrix for the Jukes-Cantor model.}
+%\caption{The transition probability matrix for the Jukes-Cantor model.}
+\label{eq:JC69_Pmat}
+\end{equation}
 
-\label{fig:JC69_Pmat}
-\end{figure}
+Each row of the transition-probability matrix is a probability distribution, and thus sums to $1$.  When $t=0$ the transition-probability matrix is the identity matrix, i.e., in time $t=0$ the current nucleotide state can not change.  The limiting distribution when $\lim_{t \rightarrow \infty} p_{ij}(t) = \pi_j$ represents the probability that the process is in state $j$ after infinite time.  For the JC69 model, the limiting probabilities, $\bm{\pi} = (\pi_T,\pi_C,\pi_A,\pi_G)$ are $(1/4,1/4,1/4,1/4)$, i.e., when enough time has passed and so many substitutions have occurred, the probably of observing any nucleotide at a site is equal, regardless of the nucleotide state at time $t=0$.  When the vector of states, $\bm{\pi}$, satisfies the $\bm{\pi} = \bm{\pi} P(t)$ for all $t \ge 0$, $\bm{\pi}$ is referred to as the stationary distribution and if such a distribution of a Markov process exists, it is unique.  The stationary distribution for the JC69 model is the limiting distribution, $\bm{\pi} = (\pi_T,\pi_C,\pi_A,\pi_G) = (1/4,1/4,1/4,1/4)$.  Another notable property of the JC69 is that time, $t$ and rate, $\lambda$ are present as a product, and thus only distance, $d = \lambda t$, can be estimated.
 
-Each row of the transition-probability matrix is a probability distribution, and thus sums to $1$.  When $t=0$ the transition-probability matrix is the identity matrix, i.e., in time $t=0$ the current nucleotide state can not change.  The limiting distribution when $\lim_{t \rightarrow \infty} p_{ij}(t) = \pi_j$ represents the probability that the process is in state $j$ after infinite time.  For the JC69 model, the limiting probabilities, $\bm{\pi} = (\pi_T,\pi_C,\pi_A,\pi_G)$ are $(1/4,1/4,1/4,1/4)$, i.e., when enough time has passed and so many substitutions have occurred, the probably of observing any nucleotide at a site is equal, regardless what the nucleotide state is at time $t=0$.  When the vector of states, $\bm{\pi}$, satisfies the $\bm{\pi} = \bm{\pi} P(t)$ for all $t \ge 0$, $\bm{\pi}$ is referred to as the stationary distribution.  If a stationary distribution of a Markov process exists, it is unique.  The stationary distribution for the JC69 model is the limiting distribution, $\bm{\pi} = (\pi_T,\pi_C,\pi_A,\pi_G) = (1/4,1/4,1/4,1/4)$.  Another notable property of the JC69 model is that time, $t$ and rate, $\lambda$ are present as a product, and thus only distance, $d = \lambda t$, can be estimated.
+Most convention models are time reversible definiation and this guarantees the eigen values are real.  It also implies that the probabilites of the data on the tree do not depend on the root.
 
-Maximum Likelihood (ML) is a widely used method of statistical inference that is used with all models discussed in this thesis.  With data $\bm{X} = (x_1,x_2,\dots,x_n)^T$ sampled from a population with a known distribution, the likelihood function, $L(\theta)$, is proportional to the joint density function of the data, but treated as a function of the unknown parameter, $\theta$.  A goal of ML estimation is to determine the parameter value, \(\hat{\theta}\), that maximizes $L(\theta)$, i.e., to determine the parameter value that makes the observed data most probable.  The parameter may be a single value, or a vector of values, $\theta = (\theta_1,\theta_2,\dots,\theta_k)^T$.  The value of $\theta$, $\hat{\theta}$, that maximizes $L(\theta)$ is the maximum likelihood estimate (MLE) of $\theta$.  Some of the favourable properties of estimation by Maximum likelihood include the likelihood principle, consistency, and asymptotic normality.  % Properties of MLE: transformation invariance, consistency, efficiency (low bound of variance of estimators), convenient distribution of \hat{\theta} ~ AN[\theta, J(hat{\theta}^-1)]
+\Gls{ml} is a widely used method of statistical inference that is used with all models discussed in this thesis.  With data $\bm{X} = (x_1,x_2,\dots,x_n)^T$ sampled from a population with a known distribution, the likelihood function, $L(\theta)$, is proportional to the joint density function of the data, but treated as a function of the unknown parameter, $\theta$.  A goal of \gls{ml} estimation is to determine the parameter value, \(\hat{\theta}\), that maximizes $L(\theta)$, i.e., to determine the parameter value that makes the observed data most probable.  The parameter may be a single value, or a vector of values, $\theta = (\theta_1,\theta_2,\dots,\theta_k)^T$.  The value of $\theta$, $\hat{\theta}$, that maximizes $L(\theta)$ is the \gls{mle} of $\theta$.  Some of the favourable properties of estimation by \gls{ml} include the likelihood principle, consistency, and asymptotic normality.  % Properties of MLE: transformation invariance, consistency, efficiency (low bound of variance of estimators), convenient distribution of \hat{\theta} ~ AN[\theta, J(hat{\theta}^-1)]
 
-Using ML to estimate the distance between two sequences under a JC69 model involves estimation of the single parameter, $d$.  The probability that a site differs between two homologous sequences separated by some distance $d$ is $p = 3p_1 = 3/4 - 3/4 e^{-4d/3}$, where the distance between two sequences separated by time $t$ is $d=3\lambda t$.  The probability of observing $x$ substitutions out of $n$ sites is the binomial probability, $L(d) = {n \choose x} \left(3/4 - 3/4 e^{-4d/3}\right)^x \left(1/4 - 3/4 e^{-4d/3}\right)^{n-x}$.  The estimate of $d$, $\hat{d}$, is the value of $d$ that maximizes the $L(d)$.  Setting $L'(d)$ (or equivalently $log[L'(d)]$) to $0$ and solving for $d$ gives $\hat{d} = -\frac{3}{4} log \left(1 -\frac{4}{3} \frac{x}{n}\right)$.  Thus, under a JC69 model, two aligned sequences of $350$ nucleotides that differ at $29$ positions have an ML estimated distance of $\hat{d} = 0.0878$.
+Using ML to estimate the distance between two sequences under a JC69 model involves estimation of the single parameter, $d$.  The probability that a site differs between two homologous sequences separated by some distance $d$ is $p = 3p_1 = 3/4 - 3/4 e^{-4d/3}$, where the distance between two sequences separated by time $t$ is $d=3\lambda t$.  The probability of observing $x$ substitutions out of $n$ sites is the binomial probability, $L(d) = {n \choose x} \left(3/4 - 3/4 e^{-4d/3}\right)^x \left(1/4 - 3/4 e^{-4d/3}\right)^{n-x}$.  The estimate of $d$, $\hat{d}$, is the value of $d$ that maximizes the $L(d)$.  Setting $L'(d)$ (or equivalently $log[L'(d)]$) to $0$ and solving for $d$ gives $\hat{d} = -\frac{3}{4} log \left(1 -\frac{4}{3} \frac{x}{n}\right)$.  Thus, under a JC69 model, two aligned sequences of $350$ nucleotides that differ at $29$ positions have an \gls{ml} estimated distance of $\hat{d} = 0.0878$.
 
 %\subsection*{Likelihood of Site Data under Markov Models of Codon Evolution}
-\subsection{Comparison of Codon Substitutions for the Detection of Adaptive Evolution}
-The JC69 and related models \citep[e.g.,][]{kimura1980simple, tamura1993estimation} describe substitutions between nucleotides using a Markov process.  Other models of molecular evolution model describe substitutions between either amino acids or codons.  Those models of amino acid or codon substitution follow the same Markov theory described previously, but the state space of their Markov processes are either the 20 amino acids in proteins or the 61 sense codons of the universal genetic code.  Models of codon evolution are often more powerful for detecting positive selection, because they can harness additional information contained in the DNA sequences about whether a codon substitution resulted in a change in the encoding amino acid or not.  All models of evolution described henceforth are models of codon evolution.
+\subsection{A Ratio of Codon Substitutions for the Detection of Adaptive Evolution}
+The JC69 and related models \citep[e.g.,][]{kimura1980simple, tamura1993estimation} describe substitutions between nucleotides using a Markov process.  Other models of molecular evolution describe substitutions between either amino acids or codons.  Those models of amino acid or codon substitution follow the same Markov theory described previously, but the state space of their Markov processes are either the 20 amino acids in proteins or the 61 sense codons of the universal genetic code.  Models of codon evolution are often more powerful for detecting positive selection, because they can harness additional information contained in the DNA sequences about whether a codon substitution resulted in a change in the encoding amino acid or not.  All models of evolution described henceforth are models of codon evolution.
 
 With four possible nucleotides in each of the three positions in a codon, there are $4^3=64$ different codons.  Of these $64$ codons, the $61$ codons that code for amino acids are referred to as sense codons.  There are 20 different amino acids commonly found in proteins, thus the genetic code is redundant.  In the standard code, only tryptophan and methionine are encoded by single codons and all other amino acids are encoded by two, four, or six different codons (table \ref{tab:code}).  Because of this redundancy in the genetic code, a nucleotide substitution within a codon can either result in a change in the amino acid product (nonsynonymous substitution) or no change in the amino acid (synonymous substitution).
 
-If we assume natural selection acts only on proteins, all synonymous substitutions must be selectively neutral and will be fixed in the population by chance alone.  By contrast, because nonsynonymous substitutions cause changes to proteins, selection may affect their fixation.  Thus, a comparison of nonsynonymous and synonymous substitutions can be used to detect selection.  Consider two models, a null model which does not permit selection and an alternative model that is identical to the null model, except that selection permitted.  Under both the alternative and null models, the ratio of the long-run proportions of nonsynonymous to synonymous, $p_N/p_S$ and $p_N^0/p_S^0$, can be determined.  The ratio of these ratios, $(p_N/p_S)/(p_N^0/p_S^0)$ over a fixed period of time, often referred to as $d_N/d_S$ or $\omega$, can be used to infer of the strength and direction of selection.  Under purifying selection, $\omega$ is expected to be less than it would be under a comparable null model.  Under positive selection, $\omega$ is expected to be larger than it would be under the null model.  This is a fundamental property considered throughout this thesis.
+If we assume natural selection acts only on proteins, all synonymous substitutions must be selectively neutral and will be fixed in the population by chance alone.  By contrast, because nonsynonymous substitutions cause changes to proteins, selection may affect their fixation.  Thus, a comparison of nonsynonymous and synonymous substitutions can be used to detect selection.  Consider two models, a null model which does not permit selection and an alternative model that is identical to the null model, except that selection permitted.  Under both the alternative and null models, the ratio of the long-run proportions of nonsynonymous to synonymous, $p_N/p_S$ and $p_N^0/p_S^0$, can be determined.  The ratio of these ratios, $(p_N/p_S)/(p_N^0/p_S^0)$ over a fixed period of time, often referred to as $d_N/d_S$ or $\omega$, can be used to infer of the strength and direction of selection.  Under purifying selection, $\omega$ is expected to be less than it would be under a comparable null model and under positive selection, $\omega$ is expected to be larger.  This is a fundamental property considered throughout this thesis.
 
 \subsection{A Model of Codon Evolution}
 
@@ -509,7 +509,7 @@ Bayes formula is used to calculate a posterior probability that a given site evo
 \chapter{A modified likelihood approach to explore and restore regularity when testing for positive selection}
 \label{chap_modl}
 \section{Introduction}
-Tests for detection of positive selection are important for understanding the processes of molecular evolution \citep{nielsen1998likelihood} and the likelihood methods for codon-based models developed in \cite{yang2000codon} are among the most widely used approaches.  An important component of the approach is the likelihood ratio (LR) test, which is used to test for evidence of positive selection within a gene before testing for positive selection at individual amino acid sites (sites).  Standard likelihood theory gives that, when certain regularity conditions are satisfied, the distribution of an LR statistic under the null hypothesis is that of a chi-square random variable with degrees of freedom equal to the difference in the number of parameters fit under the alternative and null hypotheses.  LR tests of positive selection usually employ two additional parameters under the alternative model, often an $\omega>1$ parameter to quantify the positive selection and another parameter for the proportion of sites evolving under $\omega>1$.  This suggests the LR statistics follows a $\chi_2^2$ null distribution.  It has long been recognized, however, that the regularity conditions required for standard likelihood theory are not satisfied for such LR tests of positive selection \citep{anisimova2001accuracy}.
+Tests for detection of positive selection are important for understanding the processes of molecular evolution \citep{nielsen1998likelihood} and the likelihood methods for codon-based models developed in \cite{yang2000codon} are among the most widely used approaches.  An important component of the approach is the \gls{lr} test, which is used to test for evidence of positive selection within a gene before testing for positive selection at individual amino acid sites (sites).  Standard likelihood theory gives that, when certain regularity conditions are satisfied, the distribution of an LR statistic under the null hypothesis is that of a chi-square random variable with degrees of freedom equal to the difference in the number of parameters fit under the alternative and null hypotheses.  LR tests of positive selection usually employ two additional parameters under the alternative model, often an $\omega>1$ parameter to quantify the positive selection and another parameter for the proportion of sites evolving under $\omega>1$.  This suggests the LR statistics follows a $\chi_2^2$ null distribution.  It has long been recognized, however, that the regularity conditions required for standard likelihood theory are not satisfied for such LR tests of positive selection \citep{anisimova2001accuracy}.
 
 Simulations suggest that a $\chi_2^2$ distribution will give 5\% thresholds for the LR test that are too large \citep{anisimova2001accuracy,wong2004accuracy}.  Drawing upon the non-standard likelihood theory of \cite{self1987asymptotic}, \cite{swanson2003pervasive} indicate that, for model comparison they describe as M8a vs M8, theory supports a 50:50 mixture of a point mass at 0 and a $\chi_1^2$ distribution or, more concisely, a $\chi_0^2/2+\chi_1^2/2$ distribution.  However, \cite{wong2004accuracy} and \cite{anisimova2001accuracy} raised concerns about whether this is the appropriate distribution for comparison.  Nevertheless, the $\chi_0^2/2+\chi_1^2/2$ distribution and, to be more conservative, the $\chi_1^2$ distribution are the most frequently used distributions.  While there have been some simulation studies indicating that the $\chi_1^2$ distribution is indeed conservative in the sense that LR statistics generated under the null tend to be smaller than predicted by a $\chi_1^2$ distribution \citep{anisimova2001accuracy,wong2004accuracy,berlin2005testing}, some of these same studies have found settings where the false positive rates are larger than 5\% \citep{wong2004accuracy,berlin2005testing}.
 
