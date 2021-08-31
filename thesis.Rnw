@@ -204,6 +204,7 @@ example.tre <- read.tree(text="(((1:0.32,2:0.53)5:0.12,3:0.47)6:0.14,4:0.61)Root
     nodelabels("2 ATGTTA...",2,frame='n',cex=2,c(1,-.4))
     nodelabels("3 ATGCTA...",3,frame='n',cex=2,adj=c(1,-.4))
     nodelabels("4 ATGTTA...",4,frame='n',cex=2,adj=c(1,1.4))
+    edgelabels(c(expression('t'[6]),expression('t'[5]),expression('t'[1]),expression('t'[2]),expression('t'[3]),expression('t'[4])),adj=c(0,1),bg='white',cex=2,col='black',frame="none")
     @
     \caption{Rooted tree}
     \label{sfig:samptreerooted}
@@ -218,11 +219,12 @@ example.tre <- read.tree(text="(((1:0.32,2:0.53)5:0.12,3:0.47)6:0.14,4:0.61)Root
     nodelabels("4 ATGTTA...",4,frame='n',cex=2,adj=c(-.05,-.1))
     nodelabels("6",6,frame='n',cex=2,adj=c(.4,-.8))
     nodelabels("5",7,frame='n',cex=2,adj=c(.7,1.6))
+    edgelabels(c(expression('','t'[5]),expression('t'[1]),expression('t'[2]),expression('t'[3]),expression('t'[4])),adj=2,bg='white',cex=2,col='black',frame="none")
     @
     \caption{Unrooted tree}
     \label{sfig:sampletreeunrooted}
   \end{subfigure}
-  \caption[]{A four-taxon, rooted tree and the corresponding unrooted tree.  The rooted tree has 6 branches, 3 internal nodes (labelled 5, 6, and Root) and 4 tip nodes (labelled 1, 2, 3, and 4).  The unrooted tree has 5 branches, 2 internal nodes (labelled 5 and 6), and the same four 4 tip nodes as the rooted tree.  The first two codons of the sequence data for the taxa at the tip nodes is shown adjacent to the taxon label.}
+  \caption[]{A four-taxon, rooted tree and the corresponding unrooted tree.  The rooted tree has 6 branches, 3 internal nodes (labelled 5, 6, and Root) and 4 external nodes (labelled 1, 2, 3, and 4).  The unrooted tree has 5 branches, 2 internal nodes (labelled 5 and 6), and the same 4 external nodes as the rooted tree.  The branch lengths are labelled $t_1$ through $t_6$.  The first two codons of the sequence data for the taxa at the external nodes is shown adjacent to the taxon label.}
   \label{fig:sampletrees}
 \end{figure}
 
@@ -267,7 +269,7 @@ The probability of transitioning from nucleotide state $i$ to state $j$ within s
 \end{equation}
 When $h$ is 0, the current nucleotide state can not change and the transition probability matrix is the identity matrix.
 
-The transition probability matrix $P(t)$, the probability of transitioning from nucleotide $i$ to $j$ in any time $t>0$ can be obtained by directly solving the Kolmorgorov backward equation.
+The transition probability matrix $P(t)$, the probability of transitioning from nucleotide $i$ to $j$ in any time $t>0$, can be obtained by directly solving the Kolmorgorov backward equation.
 \begin{align}
   P(h+t) &= P(h)P(t) \nonumber \\
          &= [I + Qh + o(h)]P(t) \nonumber \\
@@ -284,12 +286,11 @@ A more general solution involves exponentiation of $Qt$.  Using the Chapman-Kolm
       &\vdotswithin{ = } \\
       &= \left(P_{t/n}\right)^n,
 \end{align*}
-where the argument is indicated as a subscript for clarity.
-
-When $n$ is large, the time interval $t/n$ is small, and from equation \ref{eq:Ph}, the transition probabilities are $P(t) = lim_{n \to \infty}[I + Qt/n + o(t/n)]^n$.  Because $t$ is fixed, $o(t/n) = o(1/n)$, and $P(t)$ can be expressed as $\sum_{k=0}^{\infty}(Qt)^k/k!$, a Taylor series expansion of an exponential and
+where the argument is indicated as a subscript for clarity.  When $n$ is large, the time interval $t/n$ is small, and from equation \ref{eq:Ph}, the transition probabilities are $P(t) = lim_{n \to \infty}[I + Qt/n + o(t/n)]^n$.  Because $t$ is fixed, $o(t/n) = o(1/n)$, and $P(t)$ can be expressed as $\sum_{k=0}^{\infty}(Qt)^k/k!$, a Taylor series expansion of an exponential, and thus
 \begin{equation}
   P(t) = e^{Qt}. \label{eq:Pt}
 \end{equation}
+
 A common approach for solving equation \ref{eq:Pt} is by eigen decomposition.  An $N \times N$ matrix, $A$, with $N$ linearly independent eigenvectors can be expressed in its eigen decomposition, $A = U \Lambda U^{-1}$, where $U$ is the $N \times N$ matrix whose $i^{th}$ column is the eigenvector $u_i$ of $A$ and $\Lambda$ is the diagonal matrix whose diagonal elements are the corresponding eigenvalues.  Note that $A^2=(U \Lambda U^{-1})(U \Lambda U^{-1}) = U \Lambda (U^{-1}U) \Lambda U^{-1} = U \Lambda^2 U^{-1}$ and in general $A^n = U \Lambda^n U^{-1}$.  The eigen decomposition of the rate matrix, $Q = U \Lambda U^{-1}$, allows $P(t)$ to be obtained by exponentiating the diagonal matrix entries.
 \begin{equation}
   \label{eq:PtEig}
@@ -318,9 +319,11 @@ P(t) = \bordermatrix{~  & T         & C           & A           & G    \cr
 \label{eq:JC69_Pmat}
 \end{equation}
 
-Each row of the transition-probability matrix is a probability distribution, and thus sums to $1$.  When $t=0$ the transition-probability matrix is the identity matrix, i.e., in time $t=0$ the current nucleotide state can not change.  The limiting distribution when $\lim_{t \rightarrow \infty} p_{ij}(t) = \pi_j$ represents the probability that the process is in state $j$ after infinite time.  For the JC69 model, the limiting probabilities, $\bm{\pi} = (\pi_T,\pi_C,\pi_A,\pi_G)$ are $(1/4,1/4,1/4,1/4)$, i.e., when enough time has passed and so many substitutions have occurred, the probably of observing any nucleotide at a site is equal, regardless of the nucleotide state at time $t=0$.  When the vector of states, $\bm{\pi}$, satisfies the $\bm{\pi} = \bm{\pi} P(t)$ for all $t \ge 0$, $\bm{\pi}$ is referred to as the stationary distribution and if such a distribution of a Markov process exists, it is unique.  The stationary distribution for the JC69 model is the limiting distribution, $\bm{\pi} = (\pi_T,\pi_C,\pi_A,\pi_G) = (1/4,1/4,1/4,1/4)$.  Another notable property of the JC69 is that time, $t$ and rate, $\lambda$ are present as a product, and thus only distance, $d = \lambda t$, can be estimated.
+Each row of the transition-probability matrix is a probability distribution, and thus sums to $1$.  When $t=0$ the transition-probability matrix is the identity matrix, i.e., over time $t=0$ the current nucleotide state can not change.  The limiting distribution when $\lim_{t \rightarrow \infty} p_{ij}(t) = \pi_j$ represents the probability that the process is in state $j$ after infinite time.  For the JC69 model, the limiting probabilities, $\bm{\pi} = (\pi_T,\pi_C,\pi_A,\pi_G)$ are $(1/4,1/4,1/4,1/4)$, i.e., when enough time has passed and so many substitutions have occurred, the probably of observing any nucleotide at a site is equal, regardless of the nucleotide state at time $t=0$.  When the vector of states, $\bm{\pi}$, satisfies the $\bm{\pi} = \bm{\pi} P(t)$ for all $t \ge 0$, $\bm{\pi}$ is referred to as the stationary distribution and if such a distribution of a Markov process exists, it is unique.  The stationary distribution for the JC69 model is the limiting distribution, $\bm{\pi} = (\pi_T,\pi_C,\pi_A,\pi_G) = (1/4,1/4,1/4,1/4)$.  Another notable property of the JC69 is that time, $t$ and rate, $\lambda$ are present as a product, and thus only distance, $d = \lambda t$, can be estimated.
 
-Most convention models are time reversible definiation and this guarantees the eigen values are real.  It also implies that the probabilites of the data on the tree do not depend on the root.
+Most conventional models of evolution are time reversible.  A Markov process is said to be time reversible if the long-run rate of transitioning from state $i$ to state $j$ is equal to the long-run rate of transitioning from state $j$ to state $i$, i.e., $\pi_ip_{ij} = \pi_jp_{ji}$, for all states, $i$ and $j$.  There are two useful implications for time-reversibility with respect to models of evolution.  First, a time-reversible Markov process is guaranteed to have real eigen values, so the transition probability matrix can be obtained using equation \ref{eq:PtEig}.  The second implication relates to site probabilities and the evolutionary relationship of the sequences.  Given two sequences, the site probabilities are equivalent when either sequence is the ancestor, or if both sequences are descendants of some ancestral sequence.  With more than two sequences and their evolutionary relationship described by a phylogenetic tree, time-reversibility means the probabilities of the data do not depend on the root node.
+
+\subsection{Parameter Estimation using Maximum Likelihood}
 
 \Gls{ml} is a widely used method of statistical inference that is used with all models discussed in this thesis.  With data $\bm{X} = (x_1,x_2,\dots,x_n)^T$ sampled from a population with a known distribution, the likelihood function, $L(\theta)$, is proportional to the joint density function of the data, but treated as a function of the unknown parameter, $\theta$.  A goal of \gls{ml} estimation is to determine the parameter value, \(\hat{\theta}\), that maximizes $L(\theta)$, i.e., to determine the parameter value that makes the observed data most probable.  The parameter may be a single value, or a vector of values, $\theta = (\theta_1,\theta_2,\dots,\theta_k)^T$.  The value of $\theta$, $\hat{\theta}$, that maximizes $L(\theta)$ is the \gls{mle} of $\theta$.  Some of the favourable properties of estimation by \gls{ml} include the likelihood principle, consistency, and asymptotic normality.  % Properties of MLE: transformation invariance, consistency, efficiency (low bound of variance of estimators), convenient distribution of \hat{\theta} ~ AN[\theta, J(hat{\theta}^-1)]
 
@@ -330,9 +333,9 @@ Using ML to estimate the distance between two sequences under a JC69 model invol
 \subsection{A Ratio of Codon Substitutions for the Detection of Adaptive Evolution}
 The JC69 and related models \citep[e.g.,][]{kimura1980simple, tamura1993estimation} describe substitutions between nucleotides using a Markov process.  Other models of molecular evolution describe substitutions between either amino acids or codons.  Those models of amino acid or codon substitution follow the same Markov theory described previously, but the state space of their Markov processes are either the 20 amino acids in proteins or the 61 sense codons of the universal genetic code.  Models of codon evolution are often more powerful for detecting positive selection, because they can harness additional information contained in the DNA sequences about whether a codon substitution resulted in a change in the encoding amino acid or not.  All models of evolution described henceforth are models of codon evolution.
 
-With four possible nucleotides in each of the three positions in a codon, there are $4^3=64$ different codons.  Of these $64$ codons, the $61$ codons that code for amino acids are referred to as sense codons.  There are 20 different amino acids commonly found in proteins, thus the genetic code is redundant.  In the standard code, only tryptophan and methionine are encoded by single codons and all other amino acids are encoded by two, four, or six different codons (table \ref{tab:code}).  Because of this redundancy in the genetic code, a nucleotide substitution within a codon can either result in a change in the amino acid product (nonsynonymous substitution) or no change in the amino acid (synonymous substitution).
+With four possible nucleotides in each of the three positions in a codon, there are $4^3=64$ different codons.  Of these $64$ codons, the $61$ codons that code for amino acids are referred to as sense codons.  There are 20 different amino acids commonly found in proteins, thus the genetic code is redundant.  In the standard code, only tryptophan and methionine are encoded by single codons and all other amino acids are encoded by two, four, or six different codons (table \ref{tab:code}).  Because of this redundancy in the genetic code, a nucleotide substitution within a codon can either result in a change in the amino acid (nonsynonymous substitution) or no change in the amino acid (synonymous substitution).
 
-If we assume natural selection acts only on proteins, all synonymous substitutions must be selectively neutral and will be fixed in the population by chance alone.  By contrast, because nonsynonymous substitutions cause changes to proteins, selection may affect their fixation.  Thus, a comparison of nonsynonymous and synonymous substitutions can be used to detect selection.  Consider two models, a null model which does not permit selection and an alternative model that is identical to the null model, except that selection permitted.  Under both the alternative and null models, the ratio of the long-run proportions of nonsynonymous to synonymous, $p_N/p_S$ and $p_N^0/p_S^0$, can be determined.  The ratio of these ratios, $(p_N/p_S)/(p_N^0/p_S^0)$ over a fixed period of time, often referred to as $d_N/d_S$ or $\omega$, can be used to infer of the strength and direction of selection.  Under purifying selection, $\omega$ is expected to be less than it would be under a comparable null model and under positive selection, $\omega$ is expected to be larger.  This is a fundamental property considered throughout this thesis.
+If we assume natural selection acts only on proteins, all synonymous substitutions must be selectively neutral and will be fixed in the population by chance alone.  By contrast, because nonsynonymous substitutions cause changes to proteins, selection may affect their fixation.  Thus, a comparison of nonsynonymous and synonymous substitutions can be used to detect selection.  Consider two models, an alternative model that permits selection and a null model that is nested within the alternative model and does not permit selection.  Under both the alternative and null models, the ratio of the long-run proportions of nonsynonymous and synonymous substitutions, $p_N/p_S$ and $p_N^0/p_S^0$, can be determined.  The ratio of these ratios, $(p_N/p_S)/(p_N^0/p_S^0)$ over a fixed period of time, often referred to as $d_N/d_S$ or $\omega$, can be used to infer of the strength and direction of selection.  If under the alternative model $\omega$ is less than it would be under a comparable null model, this is a signature of purifying selection.  If under the alternative model $\omega$ is larger than it would be under a comparable null model, this is a signature of positive selection.  This is a fundamental idea considered throughout this thesis.
 
 \subsection{A Model of Codon Evolution}
 
@@ -385,29 +388,29 @@ Nucleotides can be categorized into two different groups based on whether their 
 % \end{equation}
 % where $3p_N^1$ and $3p_S^1$ are the number of nonsynonymous and synonymous sites per codon.  By the invariance property of ML, both $d_N$ and $d_S$ are themselves ML estimates.
 
-Along with the redundancy of the genetic code, a basis for models of codon evolution is the neutral theory \citep{kimura1968evolutionary, king1969non, ohta1992nearly}.  Since the predictions of the theory have been widely validated by analysis of genetic data, it is viewed as a highly useful framework for understanding molecular evolution and in particular, for detecting molecular adaptation.  The theory asserts that the majority of genetic diversity results from the random fixation of selectively neutral mutations and advantageous mutations are rare.  This means that simply locating regions of genetic diversity is not effective for detecting molecular adaptation.  However, neutral theory provides predictions about the evolution of proteins that can be used as the basis of a hypothesis test \citep{yang2000statistical}. Under a strictly neutral model (i.e., no selective consequences to any change in an amino acid) the nonsynonymous (\emph{dN}) and synonymous (\emph{dS}) substitution rates would be approximately the same. This leads to a computable index of selection: the ratio of the rates of nonsynonymous to synonymous substitutions, \emph{dN/dS}=\(\omega\).  As the two rates are equal under strict neutrality, the ratio is expected to be approximately $1$. However, neutral theory does not predict all amino acid changes are selectively neutral.  It predicts that the observable divergence between lineages was the result of a neutral process.  Genetic variation with negative fitness consequences also arises, but these deleterious mutations are removed by purifying selection.  Hence, the theory predicts that functional genes will have an \(\omega<1\) due to purifying selection pressure on deleterious, nonysynonymous changes.  The relevant null hypothesis then, is that the \(\omega\) ratio will be less than or equal to $1$ in a protein subject only to purifying selection pressure. The alternative hypothesis of molecular adaptation is characterized by an \(\omega\) ratio greater than $1$.  Nonsynonymous substitutions are fixed at a rate greater than synonymous substitutions (i.e., \(\omega>1\)) when they are advantageous and fixed due to positive selection.
+%Along with the redundancy of the genetic code, a basis for models of codon evolution is the neutral theory \citep{kimura1968evolutionary, king1969non, ohta1992nearly}.  Since the predictions of the theory have been widely validated by analysis of genetic data, it is viewed as a highly useful framework for understanding molecular evolution and in particular, for detecting molecular adaptation.  The theory asserts that the majority of genetic diversity results from the random fixation of selectively neutral mutations and advantageous mutations are rare.  This means that simply locating regions of genetic diversity is not effective for detecting molecular adaptation.  However, neutral theory provides predictions about the evolution of proteins that can be used as the basis of a hypothesis test \citep{yang2000statistical}. Under a strictly neutral model (i.e., no selective consequences to any change in an amino acid) the nonsynonymous (\emph{dN}) and synonymous (\emph{dS}) substitution rates would be approximately the same. This leads to a computable index of selection: the ratio of the rates of nonsynonymous to synonymous substitutions, \emph{dN/dS}=\(\omega\).  As the two rates are equal under strict neutrality, the ratio is expected to be approximately $1$. However, neutral theory does not predict all amino acid changes are selectively neutral.  It predicts that the observable divergence between lineages was the result of a neutral process.  Genetic variation with negative fitness consequences also arises, but these deleterious mutations are removed by purifying selection.  Hence, the theory predicts that functional genes will have an \(\omega<1\) due to purifying selection pressure on deleterious, nonysynonymous changes.  The relevant null hypothesis then, is that the \(\omega\) ratio will be less than or equal to $1$ in a protein subject only to purifying selection pressure. The alternative hypothesis of molecular adaptation is characterized by an \(\omega\) ratio greater than $1$.  Nonsynonymous substitutions are fixed at a rate greater than synonymous substitutions (i.e., \(\omega>1\)) when they are advantageous and fixed due to positive selection.
 
-\begin{figure}[h!]
-  \centering
-  \begin{subfigure}[b]{0.35\textwidth}
-  <<cmexample,echo=F,warning=F>>=
-  example.tre <- read.tree(text="(((1,2)6,3)5,4);")
-  ##par(mar=c(5.1,4.1,4.1,8.1))
-  plot(example.tre,type="cladogram",direction="upwards",show.tip.label=F,no.margin=T,cex=2)
-  nodelabels("1 (GTG)",1,frame='n',adj=c(0.15,0),cex=2)
-  nodelabels("2 (GTG)",2,frame='n',adj=c(.35,0),cex=2)
-  nodelabels("3 (TTG)",3,frame='n',adj=c(.3,0),cex=2)
-  nodelabels("4 (CCC)",4,frame='n',adj=c(.8,0),cex=2)
-  nodelabels("0",5,frame='n',adj=c(-.45,.65),cex=2)
-  nodelabels("5",6,frame='n',adj=c(-.45,.35),cex=2)
-  nodelabels("6",7,frame='n',adj=c(-.45,.35),cex=2)
-  ##edgelabels(c('t5','t6','t4'),edge=c(1,2,6),adj=1.5,bg='white',cex=2,col='black',frame="none")
-  edgelabels(c(expression('t'[5]),expression('t'[6]),expression('t'[1]),expression('t'[2]),expression('t'[3]),expression('t'[4])),adj=1.5,bg='white',cex=2,col='black',frame="none")
-  @
-  \end{subfigure}
-  \caption[]{A phylogenetic tree with four extant taxa.  The rooted tree has 6 branches, 3 internal nodes (labelled Root, 1, and 2) and 4 tip nodes (labelled with the species names).  The unrooted tree has 5 branches, 2 internal nodes (labelled 1 and 2), and 4 tip nodes (labelled with the species names). A rooted tree is not required here, but nicer to look at.}
-  \label{fig:cmexampletree}
-\end{figure}
+% \begin{figure}[h!]
+%   \centering
+%   \begin{subfigure}[b]{0.35\textwidth}
+%   <<cmexample,echo=F,warning=F>>=
+%   example.tre <- read.tree(text="(((1,2)6,3)5,4);")
+%   ##par(mar=c(5.1,4.1,4.1,8.1))
+%   plot(example.tre,type="cladogram",direction="upwards",show.tip.label=F,no.margin=T,cex=2)
+%   nodelabels("1 (GTG)",1,frame='n',adj=c(0.15,0),cex=2)
+%   nodelabels("2 (GTG)",2,frame='n',adj=c(.35,0),cex=2)
+%   nodelabels("3 (TTG)",3,frame='n',adj=c(.3,0),cex=2)
+%   nodelabels("4 (CCC)",4,frame='n',adj=c(.8,0),cex=2)
+%   nodelabels("0",5,frame='n',adj=c(-.45,.65),cex=2)
+%   nodelabels("5",6,frame='n',adj=c(-.45,.35),cex=2)
+%   nodelabels("6",7,frame='n',adj=c(-.45,.35),cex=2)
+%   ##edgelabels(c('t5','t6','t4'),edge=c(1,2,6),adj=1.5,bg='white',cex=2,col='black',frame="none")
+%   edgelabels(c(expression('t'[5]),expression('t'[6]),expression('t'[1]),expression('t'[2]),expression('t'[3]),expression('t'[4])),adj=1.5,bg='white',cex=2,col='black',frame="none")
+%   @
+%   \end{subfigure}
+%   \caption[]{A phylogenetic tree with four extant taxa.  The rooted tree has 6 branches, 3 internal nodes (labelled Root, 1, and 2) and 4 tip nodes (labelled with the species names).  The unrooted tree has 5 branches, 2 internal nodes (labelled 1 and 2), and 4 tip nodes (labelled with the species names). A rooted tree is not required here, but nicer to look at.}
+%   \label{fig:cmexampletree}
+% \end{figure}
 
 Add an alignment here and bold the site pattern on the tree.  Possibly move this up.
 
@@ -417,10 +420,10 @@ Because sites are assumed to evolve independently, the likelihood for all sites 
   \label{eq:ll}
   \ell = \log(L) = \sum_{h=1}^{n}\log\{f(\bf{x}_h|\theta)\}.
 \end{equation}
-The phylogenetic tree shown in figure \ref{fig:cmexampletree} includes the codons GTG, GTG, TTG, and CCC observed at a particular site.  The ancestral nodes are labelled 0 (root node), 5, and 6 and the branch lengths, interpreted as the expected number codon substitutions per site, are labelled $t_1$ through $t_6$.  To calculate the likelihood of the data at this site with parameters values $\theta$ given, one must condition on all possible unknown ancestral states
+The observed site pattern at site $2$ shown in the sequence alignment in table \ref{tab:sampalign} is TTA, TTA, CTG, and TTA.  Calculation of the site likelihood using either tree in figure \ref{fig:sampletrees} will give the same result, because the model is time-reversible.  In the unrooted tree, the internal nodes are labelled $5$, and $6$ and the branch lengths are labelled $t_1$ through $t_5$.  To calculate the likelihood of the data at this site with parameters values $\theta$ given, one must condition on all possible unknown ancestral states
 \begin{equation}
   \label{eq:sl}
-  f(\bm{x}_h|\theta) = \sum_{x_0}\sum_{x_5}\sum_{x_6}\left[\pi_{x_0}p_{x_0,x_5}(t_5)p_{x_5,x_6}(t_6)p_{x_6,GTG}(t_1)p_{x_6,GTG}(t_2)p_{x_5,TTG}(t_3) p_{x_0,CCC}(t_4)\right].
+  f(\bm{x}_h|\theta) = \sum_{x_5}\sum_{x_6}\left[\pi_{x_5}p_{x_5,TTA}(t_1)p_{x_5,TTA}(t_2)p_{x_5,x_6}(t_5)p_{x_6,TTA}(t_4)p_{x_6,CTA}(t_3)\right].
 \end{equation}
 % \begin{align}
 %   \label{eq:sl}
@@ -428,15 +431,16 @@ The phylogenetic tree shown in figure \ref{fig:cmexampletree} includes the codon
 %       f(\bf{x}_h|\theta) = \sum_{x_0}\sum_{x_5}\sum_{x_6}[\pi_{x_0}p_{x_0,x_5}(t_5)p_{x_5,x_6}(t_6)p_{x_6,GTG}(t_1)p_{x_6,GTG}(t_2)p_{x_5,TTG}(t_3) p_{x_0,CCC}(t_4) ].
 %     \end{array}
 % \end{align}
-Here $x_i$ represents the ancestral state and the $h$ subscript is omitted.  Using equations \ref{eq:Pt} and \ref{eq:cm} along with the universal genetic code in table \ref{tab:code}, the probability of transitioning from, e.g., TCC at node $0$ to CCC at node $4$ over branch length $t_4$ is $\pi_{TCC}p_{TCC,CCC}(t_4) = \pi_{TCC}e^{\omega \kappa \pi_{CCC}t_4}$.  The quantity in the exponent is scaled by $\kappa$ because both nucleotides C and T are pyrimidines and scaled by $\omega$ because TCC and CCC do not code for the same amino acid, i.e., this codon substitution is a non-synonymous transition.
+Here $x_i$ represents the ancestral state and the $h$ subscript is omitted.  Using equations \ref{eq:PtEig} and \ref{eq:cm} along with the universal genetic code in table \ref{tab:code}, the probability of transitioning from, e.g., GTA at node $6$ to CTA at node $3$ over branch length $t_3$ is $\pi_{GTA}p_{GTA,CTA}(t_3) = \pi_{GTA}e^{\omega \pi_{CTA}t_3}$.  The quantity in the exponent is not scaled by $\kappa$ because G is a purine and C is a pyrimidine, but is scaled by $\omega$ because GTA and CTA do not code for the same amino acid, i.e., this codon substitution is a non-synonymous transversion.
 
+Algorithms designed to maximize equation \ref{eq:ll} with respect to the parameters $\theta$ in order to obtain the ML parameter estimates, $\hat{\theta} = (\hat{\kappa},\hat{\omega},\hat{t_i})$ explore parameter space by adjusting the parameter values and repeat the likelihood calculation.  Each such iteration requires recalculation of transition probabilities over the tree and this must be done over all codon sites in the gene.  In the four-taxon tree like in figure \ref{fig:cmexampletree}, there are $61^2$ unobserved codon states to sum over.  Increasing the number taxa quickly makes likelihood maximization a computationally expensive task.
 
-The usual objective is to maximize equation \ref{eq:ll} with respect to the parameters $\theta$ in order to obtain the ML parameter estimates, $\hat{\theta} = (\hat{\kappa},\hat{\omega},\hat{t_i})$.  Algorithms designed to accomplish this task explore parameter space in a manner that efficiently and reliably maximizes the likelihood function.  However, parameter value adjustments require recalculation of transition probabilities over the tree and this must be done over all codon sites in the gene.  In a four-taxon tree like in figure \ref{fig:cmexampletree}, there are $61^3$ unobserved codon states to sum over making likelihood maximization a computationally expensive task.
+To economize on the computation of the likelihood over phylogenetic trees, the pruning algorithm was developed \citep{felsenstein1973maximum}, an application of Horner's rule, which eliminates redundant calculations. {\color{red} Need a few sentences to explain how the puring algorithm works}.
 
-To economize on the computation of the likelihood over phylogenetic trees, the pruning algorithm was developed \citep{felsenstein1973maximum}, an application of Horner's rule, which eliminates redundant calculations.
-
+{\color{red} Need to tie this into a summary chapter.. fix up the comments here and incorporate then into the Modl summary}
 To account for variability in selection pressure across sites, $\omega$ is usually allowed to vary.  The models we consider are a subset of the models described in Yang et al. (2000), which assume the value of $\omega$ at site $h$ comes from some distribution.  To avoid difficulties applying the pruning algorithm, this distribution is always discrete with weights $p_1,\dots,p_{k}$ on $\omega_1\dots,\omega_{k}$ values.  With $k$ classes, each with an estimate of the $\omega$ ratio and corresponding weight, the likelihood the data at site $h$ then becomes $f(x_h|\theta) = \sum_{i=1}^{k}p_if(x_h|\omega_i,\psi)$, where $\psi$ denotes the model parameters other than those describing the $\omega$ distribution.
 
+{\color{red} Fix this up for a SBA summary}
 Bayes formula is used to calculate a posterior probability that a given site evolved under site class $i$ with $Pr(\omega^{(h)} = \omega_i|x_h,\psi) = p_if(x_h|\omega_i,\psi) / \sum_{j=1}^{k}p_jf(x_h|\omega_j,\psi)$.  A Naive Empirical Bayes (NEB) approach does not account for any sampling errors in any of the parameters estimated by ML.  To accommodate these uncertainties in the parameters of the $\omega$ distribution, \citet{yang2005bayes} used a hierarchical Bayes Empirical Bayes (BEB) approach by assigning prior probabilities to these parameters.
 
 % ***************** LOOK HERE ************************** %
