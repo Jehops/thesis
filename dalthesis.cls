@@ -640,7 +640,7 @@
    \end{center}
    \vskip0.75in
    \begin{center}
-      \rmfamily \copyright\ Copyright by \@author, \@defenceyear
+      \rmfamily \copyright\ Copyright \@author, \@defenceyear
    \end{center}
    \vskip0.25in
    \clearpage
