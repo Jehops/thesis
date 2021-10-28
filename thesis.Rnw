@@ -350,7 +350,7 @@ For $m$ terminal nodes, the number of computations is exponential in $m$ using a
 
 Formal hypothesis tests can be conducted using the likelihoods of two competing models, a null model and an alternative model.  The likelihood under the alternative model is found by maximizing over the entire parameter space, whereas constraints are imposed on the null model making it a special case of the alternative model.  For example, a test for positive selection could be formulated from equation (\ref{eq:cm}) with the null model imposing the constraint $\omega=1$ and the alternative model allowing $\omega \ge 1$.  A standard \gls{lr} test calls for twice the difference in log likelihoods between the null and alternative model to be compared to thresholds from a $\chi^2$ distribution with degrees of freedom equal to the difference in the number of parameters, $\Delta_p$, between the models,
 \begin{equation}
-  2\Delta\ell = 2 [ log(L_a() - log(L_0) ] \sim \chi^2_{\Delta_p},
+  2\Delta\ell = 2 [ log(L_a) - log(L_0) ] \sim \chi^2_{\Delta_p},
 \end{equation}
 where $L_0$ and $L_a$ are the likelihood scores under the null and alternative models.
 
