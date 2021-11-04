@@ -1,0 +1,23 @@
+par1a <- read.csv("./bs_data/params_1a.csv")
+pdf("~/scm/thesis_talk.git/bs_hist_1a.pdf")
+hist(1-par1a$p0-par1a$p1,xlim=c(0,1),main='Study 1a',cex.main=3,xlab='',axes=F,ylab='',col='black',density=200,breaks=50)
+axis(1,at=seq(0,1,.1),cex.axis=3,padj=1)
+dev.off()
+
+par1b <- read.csv("./bs_data/params_1b.csv")
+pdf("~/scm/thesis_talk.git/bs_hist_1b.pdf")
+hist(1-par1b$p0-par1b$p1,xlim=c(0,1),main='Study 1b',cex.main=3,xlab='',axes=F,ylab='',col='black',density=200,breaks=50)
+axis(1,at=seq(0,1,.1),cex.axis=3,padj=1)
+dev.off()
+
+par1c <- read.csv("./bs_data/params_1c.csv")
+pdf("~/scm/thesis_talk.git/bs_hist_1c.pdf")
+hist(1-par1c$p0-par1c$p1,xlim=c(0,1),main='Study 1c',cex.main=3,xlab='',axes=F,ylab='',col='black',density=200,breaks=50)
+axis(1,at=seq(0,1,.1),cex.axis=3,padj=1)
+dev.off()
+
+par1d <- read.csv("./bs_data/params_1d.csv")
+pdf("~/scm/thesis_talk.git/bs_hist_1d.pdf")
+hist(1-par1d$p0-par1d$p1,xlim=c(0,1),main='Study 1d',cex.main=3,xlab='',axes=F,ylab='',col='black',density=200,breaks=50)
+axis(1,at=seq(0,1,.1),cex.axis=3,padj=1)
+dev.off()
